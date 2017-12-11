@@ -56,6 +56,10 @@
 #include "elements/userlevel/controlsocket.hh"
 CLICK_USING_DECLS
 
+#define _GNU_SOURCE
+#include <sched.h>
+#include <pthread.h>
+
 #define HELP_OPT		300
 #define VERSION_OPT		301
 #define CLICKPATH_OPT		302
@@ -442,6 +446,13 @@ cleanup(Clp_Parser *clp, int exit_value)
     return exit_value;
 }
 
+int bindthread(pthread_t& tid, int coreid) {
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(coreid, &cpuset);
+  return pthread_setaffinity_np(tid, sizeof(cpu_set_t), &cpuset);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -657,11 +668,15 @@ particular purpose.\n");
       hotswap_task.initialize(hotswap_thunk_router->root_element(), false);
       hotswap_thunk_router->activate(false, errh);
     }
+    pthread_t thread;
+    thread = pthread_self();
+    bindthread(thread, 1);
 #if HAVE_MULTITHREAD
     for (int t = 1; t < nthreads; ++t) {
 	pthread_t p;
 	pthread_create(&p, 0, thread_driver, router->master()->thread(t));
 	other_threads.push_back(p);
+  bindthread(p, t+1);
     }
 #endif
     router->master()->thread(0)->driver();
