@@ -56,7 +56,6 @@
 #include "elements/userlevel/controlsocket.hh"
 CLICK_USING_DECLS
 
-#define _GNU_SOURCE
 #include <sched.h>
 #include <pthread.h>
 
