@@ -530,7 +530,7 @@ ControlSocket::read_command(connection &conn, const String &handlername, String 
     return conn.transfer_messages(CSERR_UNSPECIFIED, "Read handler '" + handlername + "' error", &errh);
 
   conn.message(CSERR_OK, "Read handler '" + handlername + "' OK");
-  conn.out_text << "DATA " << data.length() << '\r' << '\n' << data;
+  conn.out_text << "DATA " << data.length() << '\r' << '\n' << data << '\r\n';
   return 0;
 }
 
