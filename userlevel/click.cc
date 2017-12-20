@@ -94,7 +94,7 @@ static const Clp_Option options[] = {
     { "simtime", 0, SIMTIME_OPT, Clp_ValDouble, Clp_Optional },
     { "simulation-time", 0, SIMTIME_OPT, Clp_ValDouble, Clp_Optional },
     { "threads", 'j', THREADS_OPT, Clp_ValInt, 0 },
-    { "affinity", 'a', THREADS_AFF_OPT, 0, 0 },
+    { "affinity", 'a', THREADS_AFF_OPT, Clp_ValInt, Clp_Optional | Clp_Negate },
     { "time", 't', TIME_OPT, 0, 0 },
     { "unix-socket", 'u', UNIX_SOCKET_OPT, Clp_ValString, 0 },
     { "version", 'v', VERSION_OPT, 0, 0 },
@@ -464,7 +464,7 @@ main(int argc, char **argv)
   bool file_is_expr = false;
   const char *output_file = 0;
   bool quit_immediately = false;
-  bool setaffinity = false;
+  int setaffinity = -1;
   bool report_time = false;
   bool allow_reconfigure = false;
   Vector<String> handlers;
@@ -574,7 +574,12 @@ main(int argc, char **argv)
 
      case THREADS_AFF_OPT:
 #ifdef AFFINITY_SUPPORT
-      setaffinity = true;
+      if(clp->negated)
+        setaffinity = -1;
+      else if (clp->have_val)
+        setaffinity = clp->val.i;
+      else
+        setaffinity = 0;
 #else
       errh->warning("CPU affinity is not supported on this platform");
 #endif
@@ -681,7 +686,7 @@ particular purpose.\n");
 	other_threads.push_back(p);
 
     #ifdef AFFINITY_SUPPORT
-    if (setaffinity) {
+    if (setaffinity != -1) {
         cpu_set_t set;
         CPU_ZERO(&set);
         CPU_SET(t, &set);
@@ -691,7 +696,7 @@ particular purpose.\n");
     }
 #endif
     #ifdef AFFINITY_SUPPORT
-    if (setaffinity) {
+    if (setaffinity != -1) {
     cpu_set_t set;
     CPU_ZERO(&set);
     CPU_SET(0, &set);
