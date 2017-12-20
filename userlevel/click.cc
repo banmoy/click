@@ -94,7 +94,7 @@ static const Clp_Option options[] = {
     { "simtime", 0, SIMTIME_OPT, Clp_ValDouble, Clp_Optional },
     { "simulation-time", 0, SIMTIME_OPT, Clp_ValDouble, Clp_Optional },
     { "threads", 'j', THREADS_OPT, Clp_ValInt, 0 },
-    { "affinity", 'a', THREADS_AFF_OPT, Clp_ValInt, Clp_Optional | Clp_Negate },
+    { "affinity", 'a', THREADS_AFF_OPT, Clp_ValInt, 0 },
     { "time", 't', TIME_OPT, 0, 0 },
     { "unix-socket", 'u', UNIX_SOCKET_OPT, Clp_ValString, 0 },
     { "version", 'v', VERSION_OPT, 0, 0 },
@@ -689,7 +689,7 @@ particular purpose.\n");
     if (setaffinity != -1) {
         cpu_set_t set;
         CPU_ZERO(&set);
-        CPU_SET(t, &set);
+        CPU_SET(t+setaffinity, &set);
         pthread_setaffinity_np(p, sizeof(cpu_set_t), &set);
     }
     #endif
@@ -699,7 +699,7 @@ particular purpose.\n");
     if (setaffinity != -1) {
     cpu_set_t set;
     CPU_ZERO(&set);
-    CPU_SET(0, &set);
+    CPU_SET(setaffinity, &set);
     sched_setaffinity(0, sizeof(cpu_set_t), &set);
     }
     #endif 
