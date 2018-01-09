@@ -43,7 +43,7 @@
 # include <rte_eal.h>
 # include <rte_lcore.h>
 #endif // HAVE_DPDK
-
+#include <click/threadpool.hh>
 #include <click/lexer.hh>
 #include <click/routerthread.hh>
 #include <click/router.hh>
@@ -177,29 +177,6 @@ stop_signal_handler(int sig)
     else
         click_router->set_runcount(Router::STOP_RUNCOUNT);
 }
-
-#if HAVE_EXECINFO_H
-static void
-catch_dump_signal(int sig)
-{
-    (void) sig;
-
-    /* reset these signals so if we do something bad we just exit */
-    click_signal(SIGSEGV, SIG_DFL, false);
-    click_signal(SIGBUS, SIG_DFL, false);
-    click_signal(SIGILL, SIG_DFL, false);
-    click_signal(SIGABRT, SIG_DFL, false);
-    click_signal(SIGFPE, SIG_DFL, false);
-
-    /* dump the results to standard error */
-    void *return_addrs[50];
-    int naddrs = backtrace(return_addrs, sizeof(return_addrs) / sizeof(void *));
-    backtrace_symbols_fd(return_addrs, naddrs, STDERR_FILENO);
-
-    /* dump core and quit */
-    abort();
-}
-#endif
 }
 
 
@@ -313,25 +290,6 @@ hotswap_hook(Task*, void*)
     return true;
 }
 
-#if HAVE_MULTITHREAD
-static pthread_mutex_t hotswap_lock;
-
-extern "C" {
-static void* hotswap_threadfunc(void*)
-{
-    pthread_detach(pthread_self());
-    pthread_mutex_lock(&hotswap_lock);
-    if (hotswap_router) {
-        click_master->block_all();
-        hotswap_hook(0, 0);
-        click_master->unblock_all();
-    }
-    pthread_mutex_unlock(&hotswap_lock);
-    return 0;
-}
-}
-#endif
-
 // switching configurations
 
 static Vector<String> cs_unix_sockets;
@@ -348,128 +306,6 @@ click_driver_control_socket_name(int number)
         return "click_driver@@ControlSocket";
     else
         return "click_driver@@ControlSocket@" + String(number);
-}
-
-static Router *
-parse_configuration(const String &text, bool text_is_expr, bool hotswap,
-                    ErrorHandler *errh)
-{
-    int before_errors = errh->nerrors();
-    Router *router = click_read_router(text, text_is_expr, errh, false,
-                                       click_master);
-    if (!router)
-        return 0;
-
-    // add new ControlSockets
-    String retries = (hotswap ? ", RETRIES 1, RETRY_WARNINGS false" : "");
-    int ncs = 0;
-    for (String *it = cs_ports.begin(); it != cs_ports.end(); ++it, ++ncs)
-        router->add_element(new ControlSocket, click_driver_control_socket_name(ncs), "TCP, " + *it + retries, "click", 0);
-    for (String *it = cs_unix_sockets.begin(); it != cs_unix_sockets.end(); ++it, ++ncs)
-        router->add_element(new ControlSocket, click_driver_control_socket_name(ncs), "UNIX, " + *it + retries, "click", 0);
-    for (String *it = cs_sockets.begin(); it != cs_sockets.end(); ++it, ++ncs)
-        router->add_element(new ControlSocket, click_driver_control_socket_name(ncs), "SOCKET, " + *it + retries, "click", 0);
-
-  // catch signals (only need to do the first time)
-  if (!hotswap) {
-      // catch control-C and SIGTERM
-      click_signal(SIGINT, stop_signal_handler, true);
-      click_signal(SIGTERM, stop_signal_handler, true);
-      // ignore SIGPIPE
-      click_signal(SIGPIPE, SIG_IGN, false);
-
-#if HAVE_EXECINFO_H
-    const char *click_backtrace = getenv("CLICK_BACKTRACE");
-    bool do_click_backtrace;
-    if (click_backtrace && (!BoolArg().parse(click_backtrace, do_click_backtrace)
-                            || do_click_backtrace)) {
-        click_signal(SIGSEGV, catch_dump_signal, false);
-        click_signal(SIGBUS, catch_dump_signal, false);
-        click_signal(SIGILL, catch_dump_signal, false);
-        click_signal(SIGABRT, catch_dump_signal, false);
-        click_signal(SIGFPE, catch_dump_signal, false);
-    }
-#endif
-  }
-
-  // register hotswap router on new router
-  if (hotswap && click_router && click_router->initialized())
-      router->set_hotswap_router(click_router);
-
-  if (errh->nerrors() == before_errors
-      && router->initialize(errh) >= 0)
-    return router;
-  else {
-    delete router;
-    return 0;
-  }
-}
-
-static int
-hotconfig_handler(const String &text, Element *, void *, ErrorHandler *errh)
-{
-  if (Router *new_router = parse_configuration(text, true, true, errh)) {
-#if HAVE_MULTITHREAD
-      pthread_mutex_lock(&hotswap_lock);
-#endif
-      if (hotswap_router)
-          hotswap_router->unuse();
-      hotswap_router = new_router;
-      hotswap_thunk_router->set_foreground(true);
-#if HAVE_MULTITHREAD
-      pthread_t thread_ignored;
-      pthread_create(&thread_ignored, 0, hotswap_threadfunc, 0);
-      (void) thread_ignored;
-      pthread_mutex_unlock(&hotswap_lock);
-#else
-      hotswap_task.reschedule();
-#endif
-      return 0;
-  } else
-      return -EINVAL;
-}
-
-
-// timewarping
-
-static String
-timewarp_read_handler(Element *, void *)
-{
-    if (Timestamp::warp_class() == Timestamp::warp_simulation)
-        return "simulation";
-    else if (Timestamp::warp_class() == Timestamp::warp_nowait)
-        return "nowait";
-    else
-        return String(Timestamp::warp_speed());
-}
-
-static int
-timewarp_write_handler(const String &text, Element *, void *, ErrorHandler *errh)
-{
-    if (text == "nowait")
-        Timestamp::warp_set_class(Timestamp::warp_nowait);
-    else {
-        double factor;
-        if (!DoubleArg().parse(text, factor))
-            return errh->error("expected double");
-        else if (factor <= 0)
-            return errh->error("timefactor must be > 0");
-        Timestamp::warp_set_class(Timestamp::warp_linear, factor);
-    }
-    return 0;
-}
-
-
-// main
-
-static void
-round_timeval(struct timeval *tv, int usec_divider)
-{
-    tv->tv_usec = (tv->tv_usec + usec_divider / 2) / usec_divider;
-    if (tv->tv_usec >= 1000000 / usec_divider) {
-        tv->tv_usec = 0;
-        ++tv->tv_sec;
-    }
 }
 
 #if HAVE_MULTITHREAD
@@ -513,6 +349,34 @@ void do_set_affinity(pthread_t p, int cpu) {
 # define do_set_affinity(p, cpu) /* nothing */
 #endif
 
+static Router*
+create_control_router(ErrorHandler* errh) {
+    int before_errors = errh->nerrors();
+    Router *router = new Router("", click_master);
+
+    if (!router)
+        return 0;
+
+    // add new ControlSockets
+    int ncs = 0;
+    for (String *it = cs_ports.begin(); it != cs_ports.end(); ++it, ++ncs)
+        router->add_element(new ControlSocket, click_driver_control_socket_name(ncs), "TCP, " + *it, "click", 0);
+
+    // catch control-C and SIGTERM
+    click_signal(SIGINT, stop_signal_handler, true);
+    click_signal(SIGTERM, stop_signal_handler, true);
+    // ignore SIGPIPE
+    click_signal(SIGPIPE, SIG_IGN, false);
+
+  if (errh->nerrors() == before_errors
+      && router->initialize(errh) >= 0)
+    return router;
+  else {
+    delete router;
+    return 0;
+  }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -528,8 +392,6 @@ main(int argc, char **argv)
   bool file_is_expr = false;
   const char *output_file = 0;
   bool quit_immediately = false;
-  bool report_time = false;
-  bool allow_reconfigure = false;
   Vector<String> handlers;
   String exit_handler;
   Vector<char*> dpdk_arg;
@@ -604,16 +466,8 @@ main(int argc, char **argv)
         cs_sockets.push_back(clp->vstr);
         break;
 
-     case ALLOW_RECONFIG_OPT:
-      allow_reconfigure = !clp->negated;
-      break;
-
      case QUIT_OPT:
       quit_immediately = true;
-      break;
-
-     case TIME_OPT:
-      report_time = true;
       break;
 
      case WARNINGS_OPT:
@@ -718,76 +572,28 @@ particular purpose.\n");
     }
 #endif
 
-  // provide hotconfig handler if asked
-  if (allow_reconfigure)
-      Router::add_write_handler(0, "hotconfig", hotconfig_handler, 0, Handler::f_raw | Handler::f_nonexclusive);
-  Router::add_read_handler(0, "timewarp", timewarp_read_handler, 0);
-  if (Timestamp::warp_class() != Timestamp::warp_simulation)
-      Router::add_write_handler(0, "timewarp", timewarp_write_handler, 0);
-
   // parse configuration
   click_master = new Master(click_nthreads);
-  click_router = parse_configuration(router_file, file_is_expr, false, errh);
+  click_router = create_control_router(errh);
   if (!click_router)
     return cleanup(clp, 1);
   click_router->use();
 
+  ThreadPool thread_pool(4);
+  printf("%d\n", thread_pool.nthreads());
   int exit_value = 0;
 #if (HAVE_MULTITHREAD)
   Vector<pthread_t> other_threads;
-  if (!dpdk_enabled)
-      pthread_mutex_init(&hotswap_lock, 0);
 #endif
-
-  // output flat configuration
-  if (output_file) {
-    FILE *f = 0;
-    if (strcmp(output_file, "-") != 0) {
-      f = fopen(output_file, "w");
-      if (!f) {
-        errh->error("%s: %s", output_file, strerror(errno));
-        exit_value = 1;
-      }
-    } else
-      f = stdout;
-    if (f) {
-      Element *root = click_router->root_element();
-      String s = Router::handler(root, "flatconfig")->call_read(root);
-      ignore_result(fwrite(s.data(), 1, s.length(), f));
-      if (f != stdout)
-        fclose(f);
-    }
-  }
-
-  struct rusage before, after;
-  getrusage(RUSAGE_SELF, &before);
-  Timestamp before_time = Timestamp::now_unwarped();
-  Timestamp after_time = Timestamp::uninitialized_t();
 
   // run driver
   // 10.Apr.2004 - Don't run the router if it has no elements.
   if (!quit_immediately && click_router->nelements()) {
     running = true;
     click_router->activate(errh);
-    if (allow_reconfigure) {
-      hotswap_thunk_router = new Router("", click_master);
-      hotswap_thunk_router->initialize(errh);
-      hotswap_task.initialize(hotswap_thunk_router->root_element(), false);
-      hotswap_thunk_router->activate(false, errh);
-    }
     for (int t = 0; t < click_nthreads; ++t)
         click_master->thread(t)->mark_driver_entry();
 #if HAVE_MULTITHREAD
-# if HAVE_DPDK
-    if (dpdk_enabled) {
-        unsigned t = 1;
-        unsigned lcore_id;
-        RTE_LCORE_FOREACH_SLAVE(lcore_id) {
-            rte_eal_remote_launch(thread_driver_dpdk, click_router->master()->thread(t++),
-                                  lcore_id);
-        }
-    } else
-# endif //HAVE_DPDK
     {
         for (int t = 1; t < click_nthreads; ++t) {
             pthread_t p;
@@ -807,23 +613,6 @@ particular purpose.\n");
     click_fence();
   } else if (!quit_immediately && warnings)
     errh->warning("%s: configuration has no elements, exiting", filename_landmark(router_file, file_is_expr));
-
-  after_time.assign_now_unwarped();
-  getrusage(RUSAGE_SELF, &after);
-  // report time
-  if (report_time) {
-    struct timeval diff;
-    timersub(&after.ru_utime, &before.ru_utime, &diff);
-    round_timeval(&diff, 1000);
-    printf("%ld.%03ldu", (long)diff.tv_sec, (long)diff.tv_usec);
-    timersub(&after.ru_stime, &before.ru_stime, &diff);
-    round_timeval(&diff, 1000);
-    printf(" %ld.%03lds", (long)diff.tv_sec, (long)diff.tv_usec);
-    diff = (after_time - before_time).timeval();
-    round_timeval(&diff, 10000);
-    printf(" %ld:%02ld.%02ld", (long)(diff.tv_sec/60), (long)(diff.tv_sec%60), (long)diff.tv_usec);
-    printf("\n");
-  }
 
   // call handlers
   if (handlers.size())
@@ -848,13 +637,6 @@ particular purpose.\n");
   }
 
 #if HAVE_MULTITHREAD
-# if HAVE_DPDK
-  if (dpdk_enabled) {
-      rte_eal_mp_wait_lcore();
-      goto click_cleanup;
-  }
-# endif
-
   for (int i = 0; i < other_threads.size(); ++i)
       click_master->thread(i + 1)->wake();
   for (int i = 0; i < other_threads.size(); ++i)

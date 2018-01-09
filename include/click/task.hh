@@ -274,6 +274,8 @@ class Task : private TaskLink { public:
      */
     void move_thread(int new_thread_id);
 
+    void kill(int kill_thread);
+
 
 #if HAVE_STRIDE_SCHED
     inline int tickets() const;
@@ -319,6 +321,9 @@ class Task : private TaskLink { public:
         };
         uint32_t status;
     } _status;
+
+    bool _is_killed;
+    int _kill_thread;
 
     TaskCallback _hook;
     void *_thunk;
@@ -393,7 +398,8 @@ Task::Task(TaskCallback f, void *user_data)
 #if HAVE_MULTITHREAD
       _cycle_runs(0),
 #endif
-      _thread(0), _owner(0)
+      _thread(0), _owner(0),
+      _is_killed(false)
 {
     _status.home_thread_id = -2;
     _status.is_scheduled = _status.is_strong_unscheduled = false;
@@ -416,7 +422,8 @@ Task::Task(Element* e)
 #if HAVE_MULTITHREAD
       _cycle_runs(0),
 #endif
-      _thread(0), _owner(0)
+      _thread(0), _owner(0),
+      _is_killed(false)
 {
     _status.home_thread_id = -2;
     _status.is_scheduled = _status.is_strong_unscheduled = false;
@@ -643,6 +650,14 @@ Task::update_cycles(unsigned c)
     _cycle_runs = 0;
 }
 #endif
+
+inline void
+Task::kill(int kill_thread) {
+    _is_killed = true;
+    _kill_thread = kill_thread;
+    _status.is_scheduled = true;
+    move_thread(kill_thread);
+}
 
 CLICK_ENDDECLS
 #endif

@@ -389,6 +389,10 @@ Task::process_pending(RouterThread* thread)
     click_fence();
 
     Task::Status status(_status);
+    if(_is_killed) {
+        status.home_thread_id = _kill_thread;
+        status.is_scheduled = true;
+    }
     if (status.home_thread_id != thread->thread_id()) {
         SpinlockIRQ::flags_t flags = thread->_pending_lock.acquire();
         remove_from_scheduled_list();
