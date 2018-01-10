@@ -43,7 +43,6 @@
 # include <rte_eal.h>
 # include <rte_lcore.h>
 #endif // HAVE_DPDK
-#include <click/threadpool.hh>
 #include <click/lexer.hh>
 #include <click/routerthread.hh>
 #include <click/router.hh>
@@ -58,6 +57,7 @@
 #include <click/userutils.hh>
 #include <click/args.hh>
 #include <click/handlercall.hh>
+#include <click/msgqueue.hh>
 #include "elements/standard/quitwatcher.hh"
 #include "elements/userlevel/controlsocket.hh"
 CLICK_USING_DECLS
@@ -161,6 +161,7 @@ Report bugs to <click@librelist.com>.\n");
 }
 
 static Master* click_master;
+static MsgQueue* click_msgq;
 static Router* click_router;
 static ErrorHandler* errh;
 static bool running = false;
@@ -316,6 +317,12 @@ static void *thread_driver(void *user_data)
     thread->driver();
     return 0;
 }
+
+static void *thread_cmd_driver(void *user_data) {
+  RouterThread *thread = static_cast<RouterThread*>(user_data);
+  thread->cmd_driver();
+}
+
 # if HAVE_DPDK
 static int thread_driver_dpdk(void *user_data) {
     RouterThread *thread = static_cast<RouterThread *>(user_data);
@@ -360,7 +367,7 @@ create_control_router(ErrorHandler* errh) {
     // add new ControlSockets
     int ncs = 0;
     for (String *it = cs_ports.begin(); it != cs_ports.end(); ++it, ++ncs)
-        router->add_element(new ControlSocket, click_driver_control_socket_name(ncs), "TCP, " + *it, "click", 0);
+        router->add_element(new ControlSocket(click_msgq), click_driver_control_socket_name(ncs), "TCP, " + *it, "click", 0);
 
     // catch control-C and SIGTERM
     click_signal(SIGINT, stop_signal_handler, true);
@@ -574,13 +581,14 @@ particular purpose.\n");
 
   // parse configuration
   click_master = new Master(click_nthreads);
+  click_msgq = new MsgQueue();
   click_router = create_control_router(errh);
   if (!click_router)
     return cleanup(clp, 1);
   click_router->use();
 
-  ThreadPool thread_pool(4);
-  printf("%d\n", thread_pool.nthreads());
+  click_master->set_control_router(click_router);
+
   int exit_value = 0;
 #if (HAVE_MULTITHREAD)
   Vector<pthread_t> other_threads;
@@ -591,13 +599,15 @@ particular purpose.\n");
   if (!quit_immediately && click_router->nelements()) {
     running = true;
     click_router->activate(errh);
-    for (int t = 0; t < click_nthreads; ++t)
+    for (int t = 0; t < click_nthreads; ++t) {
         click_master->thread(t)->mark_driver_entry();
+        click_master->thread(t)->set_msgqueue(click_msgq);
+    }
 #if HAVE_MULTITHREAD
     {
         for (int t = 1; t < click_nthreads; ++t) {
             pthread_t p;
-            pthread_create(&p, 0, thread_driver, click_master->thread(t));
+            pthread_create(&p, 0, thread_cmd_driver, click_master->thread(t));
             other_threads.push_back(p);
             do_set_affinity(p, t);
         }

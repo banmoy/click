@@ -550,6 +550,18 @@ RouterThread::process_pending()
 }
 
 void
+RouterThread::cmd_driver() {
+    while(1) {
+        _msgqueue->lock();
+        while(_msgqueue->empty()) {
+            _msgqueue->wait();
+        }
+        Message msg = _msgqueue->get_message();
+        _msgqueue->unlock();
+    }
+}
+
+void
 RouterThread::driver()
 {
     int iter = 0;

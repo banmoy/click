@@ -73,6 +73,7 @@ include/click/llrpc.h
 include/click/machine.hh
 include/click/master.hh
 include/click/md5.h
+include/click/msgqueue.hh
 include/click/nameinfo.hh
 include/click/notifier.hh
 include/click/package.hh

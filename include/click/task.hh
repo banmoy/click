@@ -398,12 +398,12 @@ Task::Task(TaskCallback f, void *user_data)
 #if HAVE_MULTITHREAD
       _cycle_runs(0),
 #endif
-      _thread(0), _owner(0),
-      _is_killed(false)
+      _thread(0), _owner(0)
 {
     _status.home_thread_id = -2;
     _status.is_scheduled = _status.is_strong_unscheduled = false;
     _pending_nextptr.x = 0;
+    _is_killed = false;
 }
 
 inline
@@ -422,12 +422,12 @@ Task::Task(Element* e)
 #if HAVE_MULTITHREAD
       _cycle_runs(0),
 #endif
-      _thread(0), _owner(0),
-      _is_killed(false)
+      _thread(0), _owner(0)
 {
     _status.home_thread_id = -2;
     _status.is_scheduled = _status.is_strong_unscheduled = false;
     _pending_nextptr.x = 0;
+    _is_killed = false;
 }
 
 inline bool

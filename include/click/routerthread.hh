@@ -4,6 +4,7 @@
 #include <click/sync.hh>
 #include <click/vector.hh>
 #include <click/timerset.hh>
+#include <click/msgqueue.hh>
 #if CLICK_LINUXMODULE
 # include <click/cxxprotect.h>
 CLICK_CXX_PROTECT
@@ -244,7 +245,20 @@ class RouterThread { public:
 #if CLICK_USERLEVEL
     friend class SelectSet;
 #endif
+    
+private:
+    MsgQueue* _msgqueue;
 
+public:
+    void set_msgqueue(MsgQueue* msgq) {
+        _msgqueue = msgq;
+    }
+
+    MsgQueue* get_msgqueue() const {
+        return _msgqueue;
+    }
+
+    void cmd_driver();
 };
 
 

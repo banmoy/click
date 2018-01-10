@@ -39,6 +39,14 @@ class Master { public:
     static void signal_handler(int signo);      // not really public
 #endif
 
+    Router* get_control_router() const {
+        return _control_router;
+    }
+
+    void set_control_router(Router* control_router) {
+        _control_router = control_router;
+    }
+
     void kill_router(Router*);
 
 #if CLICK_NS
@@ -62,6 +70,7 @@ class Master { public:
 
     // ROUTERS
     Router *_routers;
+    Router *_control_router;
     int _refcount;
     void register_router(Router*);
     void prepare_router(Router*);

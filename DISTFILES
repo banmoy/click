@@ -435,6 +435,7 @@ llrpc.h
 machine.hh
 master.hh
 md5.h
+msgqueue.hh
 nameinfo.hh
 notifier.hh
 package.hh

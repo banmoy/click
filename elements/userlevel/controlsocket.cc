@@ -26,6 +26,7 @@
 #include <click/router.hh>
 #include <click/straccum.hh>
 #include <click/llrpc.h>
+#include <click/msgqueue.hh>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -85,6 +86,15 @@ ControlSocketErrorHandler::account(int level)
 ControlSocket::ControlSocket()
   : _socket_fd(-1), _proxy(0), _full_proxy(0), _retry_timer(0)
 {
+  _is_gateway = false;
+}
+
+ControlSocket::ControlSocket(MsgQueue* msgq)
+  : _socket_fd(-1), _proxy(0), _full_proxy(0), _retry_timer(0)
+{
+  _msgqueue = msgq;
+  _is_gateway = true;
+  _msgid = 0;
 }
 
 ControlSocket::~ControlSocket()
@@ -704,11 +714,12 @@ ControlSocket::parse_command(connection &conn, const String &line)
       String data;
       if (words.size() > 2)
 	  data = line.substring(words[2].begin(), words.back().end());
-      if (command[0] == 'R' || command[0] == 'G')
-	  return read_command(conn, words[1], data);
-      else
-	  return write_command(conn, words[1], data);
-
+    if(_is_gateway)
+      return new_command(conn, words[1], data);
+    if (command[0] == 'R' || command[0] == 'G')
+	   return read_command(conn, words[1], data);
+    else
+	   return write_command(conn, words[1], data);
   } else if (command == "READDATA" || command == "WRITEDATA"
 	     || command == "SETDATA") {
       if (words.size() != 3)
@@ -920,6 +931,24 @@ ControlSocket::add_handlers()
 	add_data_handlers("port", Handler::OP_READ, &_unix_pathname);
     else if (_type == type_unix)
 	add_data_handlers("filename", Handler::OP_READ, &_unix_pathname);
+}
+
+int
+ControlSocket::new_command(connection &conn, const String &handlername, String param)
+{
+  Message msg;
+  msg.cmd = handlername;
+  msg.arg = param;
+  msg.id = _msgid++;
+  _msg_status[msg.id] = 0; // processing
+
+  _msgqueue->lock();
+  _msgqueue->add_message(msg);
+  _msgqueue->unlock();
+  _msgqueue->wake();
+  conn.message(CSERR_OK, "Command '" + handlername + "' OK");
+  conn.out_text << "Transaction id: " << msg.id << '\r' << '\n';
+  return 0;
 }
 
 CLICK_ENDDECLS

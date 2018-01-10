@@ -2,10 +2,12 @@
 #define CLICK_CONTROLSOCKET_HH
 #include "elements/userlevel/handlerproxy.hh"
 #include <click/straccum.hh>
+#include <unordered_map>
 CLICK_DECLS
 class ControlSocketErrorHandler;
 class Timer;
 class Handler;
+class MsgQueue;
 
 /*
 =c
@@ -225,6 +227,7 @@ UNIX.
 class ControlSocket : public Element { public:
 
     ControlSocket() CLICK_COLD;
+    ControlSocket(MsgQueue*) CLICK_COLD;
     ~ControlSocket() CLICK_COLD;
 
     const char *class_name() const	{ return "ControlSocket"; }
@@ -313,6 +316,16 @@ class ControlSocket : public Element { public:
 
     static ErrorHandler *proxy_error_function(const String &, void *);
 
+private:
+    MsgQueue* _msgqueue;
+    bool _is_gateway;
+    int _msgid;
+    // -1 failed
+    // 0 processing
+    // 1 succeesful
+    std::unordered_map<int, int> _msg_status;
+
+    int new_command(connection &conn, const String &, String);
 };
 
 CLICK_ENDDECLS
