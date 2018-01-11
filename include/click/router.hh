@@ -2,6 +2,7 @@
 #ifndef CLICK_ROUTER_HH
 #define CLICK_ROUTER_HH
 #include <click/element.hh>
+#include <click/routerinfo.hh>
 #include <click/timer.hh>
 #include <click/sync.hh>
 #include <click/task.hh>
@@ -348,6 +349,18 @@ class Router { public:
     friend class Task;
     friend int Element::set_nports(int, int);
     /** @endcond never */
+
+private:
+    RouterInfo* _router_info;
+
+public:
+    void set_router_info(RouterInfo* ri) {
+        _router_info = ri;
+    }
+
+    RouterInfo* router_info() {
+        return _router_info;
+    }
 
 };
 

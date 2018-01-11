@@ -5,7 +5,7 @@
 #include <click/atomic.hh>
 #if CLICK_USERLEVEL
 #include <click/msgqueue.hh>
-#include <unordered_map>
+#include <click/hashmap.hh>
 # include <signal.h>
 #endif
 #if CLICK_NS
@@ -127,6 +127,9 @@ private:
     int _msg_id;
     // -1 failed 0 processing 1 successful
     std::unordered_map<int, int> _msg_status;
+
+public:
+    HashMap<String, Router*> _router_map;
 
 public:
     MsgQueue* _msg_queue;

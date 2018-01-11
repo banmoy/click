@@ -82,6 +82,7 @@ include/click/packet_anno.hh
 include/click/pair.hh
 include/click/perfctr-i586.hh
 include/click/router.hh
+include/click/routerinfo.hh
 include/click/routerthread.hh
 include/click/routervisitor.hh
 include/click/selectset.hh

@@ -87,14 +87,6 @@ ControlSocketErrorHandler::account(int level)
 ControlSocket::ControlSocket()
   : _socket_fd(-1), _proxy(0), _full_proxy(0), _retry_timer(0)
 {
-  _is_gateway = false;
-}
-
-ControlSocket::ControlSocket(MsgQueue* msgq)
-  : _socket_fd(-1), _proxy(0), _full_proxy(0), _retry_timer(0)
-{
-  _msgqueue = msgq;
-  _is_gateway = true;
 }
 
 ControlSocket::~ControlSocket()
@@ -714,8 +706,6 @@ ControlSocket::parse_command(connection &conn, const String &line)
       String data;
       if (words.size() > 2)
 	  data = line.substring(words[2].begin(), words.back().end());
-    if(_is_gateway)
-      return new_command(conn, words[1], data);
     if (command[0] == 'R' || command[0] == 'G')
 	   return read_command(conn, words[1], data);
     else
@@ -790,6 +780,13 @@ ControlSocket::parse_command(connection &conn, const String &line)
     conn.inpos = 0;
     return 0;
 
+  } else if (command == "MANAGE") {
+    if (words.size() < 2)
+      return conn.message(CSERR_SYNTAX, "Wrong number of arguments");
+    String data;
+    if (words.size() > 2)
+      data = line.substring(words[2].begin(), words.back().end());
+    return manage_command(conn, words[1], data);
   } else if (command == "HELP") {
     conn.message(CSERR_OK, "Commands supported:", true);
     conn.message(CSERR_OK, "READ handler [arg...]   call read handler, return DATA", true);
@@ -934,7 +931,7 @@ ControlSocket::add_handlers()
 }
 
 int
-ControlSocket::new_command(connection &conn, const String &handlername, String param)
+ControlSocket::manage_command(connection &conn, const String &handlername, String param)
 {
   Master* master = router()->master();
   MsgQueue* msgq = master->get_msg_queue();

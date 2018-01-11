@@ -444,6 +444,7 @@ packet_anno.hh
 pair.hh
 perfctr-i586.hh
 router.hh
+routerinfo.hh
 routerthread.hh
 routervisitor.hh
 selectset.hh

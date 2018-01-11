@@ -26,6 +26,8 @@
 #include <click/routerthread.hh>
 #include <click/master.hh>
 #include <click/driver.hh>
+#include <click/error.hh>
+#include <click/args.hh>
 #if CLICK_LINUXMODULE
 # include <click/cxxprotect.h>
 CLICK_CXX_PROTECT
@@ -790,8 +792,13 @@ RouterThread::thread_state_name(int ts)
 int
 RouterThread::add_nf(String config_file) {
     String filename;
+    StringArg().parse();
     Router* router = click_read_router(filename, false, NULL, false, master());
     router->initialize(ErrorHandler::silent_handler());
+    String router_name = router->router_info()->router_name();
+    master()->_router_map.insert(router_name, router);
+    router->activate(ErrorHandler::default_handler());
+    printf("router %s activated\n");
     return 0;
 }
 

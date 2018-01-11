@@ -365,7 +365,7 @@ create_control_router(ErrorHandler* errh) {
     // add new ControlSockets
     int ncs = 0;
     for (String *it = cs_ports.begin(); it != cs_ports.end(); ++it, ++ncs)
-        router->add_element(new ControlSocket(click_master->get_msg_queue()), click_driver_control_socket_name(ncs), "TCP, " + *it, "click", 0);
+        router->add_element(new ControlSocket, click_driver_control_socket_name(ncs), "TCP, " + *it, "click", 0);
 
     // catch control-C and SIGTERM
     click_signal(SIGINT, stop_signal_handler, true);

@@ -227,7 +227,6 @@ UNIX.
 class ControlSocket : public Element { public:
 
     ControlSocket() CLICK_COLD;
-    ControlSocket(MsgQueue*) CLICK_COLD;
     ~ControlSocket() CLICK_COLD;
 
     const char *class_name() const	{ return "ControlSocket"; }
@@ -317,10 +316,8 @@ class ControlSocket : public Element { public:
     static ErrorHandler *proxy_error_function(const String &, void *);
 
 private:
-    MsgQueue* _msgqueue;
-    bool _is_gateway;
 
-    int new_command(connection &conn, const String &, String);
+    int manage_command(connection &conn, const String &, String);
 };
 
 CLICK_ENDDECLS
