@@ -319,11 +319,6 @@ class ControlSocket : public Element { public:
 private:
     MsgQueue* _msgqueue;
     bool _is_gateway;
-    int _msgid;
-    // -1 failed
-    // 0 processing
-    // 1 succeesful
-    std::unordered_map<int, int> _msg_status;
 
     int new_command(connection &conn, const String &, String);
 };

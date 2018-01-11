@@ -4,6 +4,8 @@
 #include <click/router.hh>
 #include <click/atomic.hh>
 #if CLICK_USERLEVEL
+#include <click/msgqueue.hh>
+#include <unordered_map>
 # include <signal.h>
 #endif
 #if CLICK_NS
@@ -120,6 +122,35 @@ class Master { public:
     friend class Task;
     friend class RouterThread;
     friend class Router;
+
+private:
+    int _msg_id;
+    // -1 failed 0 processing 1 successful
+    std::unordered_map<int, int> _msg_status;
+
+public:
+    MsgQueue* _msg_queue;
+
+    MsgQueue* get_msg_queue() const {
+        return _msg_queue;
+    }
+
+    int get_msg_id() {
+        return _msg_id++;
+    }
+
+    void set_msg_status(int id, int st) {
+        _msg_status[id] = st;
+    }
+
+    int get_msg_status(int id) {
+        if(_msg_status.count(id)) {
+            return _msg_status[id];
+        } else {
+            // non exist
+            return -2;
+        }
+    }
 };
 
 inline int

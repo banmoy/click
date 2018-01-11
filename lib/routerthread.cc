@@ -39,6 +39,7 @@ CLICK_CXX_PROTECT
 CLICK_CXX_UNPROTECT
 # include <click/cxxunprotect.h>
 #elif CLICK_USERLEVEL
+# include <click/msgqueue.hh>
 # include <fcntl.h>
 #endif
 CLICK_DECLS
@@ -551,13 +552,23 @@ RouterThread::process_pending()
 
 void
 RouterThread::cmd_driver() {
+
+    MsgQueue* msg_queue = master()->get_msg_queue();
+
     while(1) {
-        _msgqueue->lock();
-        while(_msgqueue->empty()) {
-            _msgqueue->wait();
+        msg_queue->lock();
+        while(msg_queue->empty()) {
+            msg_queue->wait();
         }
-        Message msg = _msgqueue->get_message();
-        _msgqueue->unlock();
+        Message msg = msg_queue->get_message();
+        msg_queue->unlock();
+        int ret = -1;
+        if(msg.cmd == "addnf") {
+            ret = add_nf(msg.arg);
+        } else if(msg.cmd == "delnf") {
+            ret = delete_nf(msg.arg);
+        }
+        master()->set_msg_status(msg.id, (ret==-1 ? -1 : 1));
     }
 }
 
@@ -773,5 +784,15 @@ RouterThread::thread_state_name(int ts)
     }
 }
 #endif
+
+int
+RouterThread::add_nf(String config_file) {
+    return 0;
+}
+
+int
+RouterThread::delete_nf(String router_name) {
+    return 0;
+}
 
 CLICK_ENDDECLS

@@ -57,7 +57,6 @@
 #include <click/userutils.hh>
 #include <click/args.hh>
 #include <click/handlercall.hh>
-#include <click/msgqueue.hh>
 #include "elements/standard/quitwatcher.hh"
 #include "elements/userlevel/controlsocket.hh"
 CLICK_USING_DECLS
@@ -161,7 +160,6 @@ Report bugs to <click@librelist.com>.\n");
 }
 
 static Master* click_master;
-static MsgQueue* click_msgq;
 static Router* click_router;
 static ErrorHandler* errh;
 static bool running = false;
@@ -367,7 +365,7 @@ create_control_router(ErrorHandler* errh) {
     // add new ControlSockets
     int ncs = 0;
     for (String *it = cs_ports.begin(); it != cs_ports.end(); ++it, ++ncs)
-        router->add_element(new ControlSocket(click_msgq), click_driver_control_socket_name(ncs), "TCP, " + *it, "click", 0);
+        router->add_element(new ControlSocket(click_master->get_msg_queue()), click_driver_control_socket_name(ncs), "TCP, " + *it, "click", 0);
 
     // catch control-C and SIGTERM
     click_signal(SIGINT, stop_signal_handler, true);
@@ -581,7 +579,6 @@ particular purpose.\n");
 
   // parse configuration
   click_master = new Master(click_nthreads);
-  click_msgq = new MsgQueue();
   click_router = create_control_router(errh);
   if (!click_router)
     return cleanup(clp, 1);
@@ -601,7 +598,6 @@ particular purpose.\n");
     click_router->activate(errh);
     for (int t = 0; t < click_nthreads; ++t) {
         click_master->thread(t)->mark_driver_entry();
-        click_master->thread(t)->set_msgqueue(click_msgq);
     }
 #if HAVE_MULTITHREAD
     {

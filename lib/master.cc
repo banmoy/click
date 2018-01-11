@@ -55,6 +55,8 @@ Master::Master(int nthreads)
     _siginfo = 0;
     sigemptyset(&_sig_dispatching);
     signal_thread = _threads[1];
+    _msg_queue = new MsgQueue();
+    _msg_id = 0;
 #endif
 
 #if CLICK_LINUXMODULE

@@ -4,7 +4,6 @@
 #include <click/sync.hh>
 #include <click/vector.hh>
 #include <click/timerset.hh>
-#include <click/msgqueue.hh>
 #if CLICK_LINUXMODULE
 # include <click/cxxprotect.h>
 CLICK_CXX_PROTECT
@@ -247,17 +246,11 @@ class RouterThread { public:
 #endif
     
 private:
-    MsgQueue* _msgqueue;
+    int add_nf(String config_file);
+
+    int delete_nf(String router_name);
 
 public:
-    void set_msgqueue(MsgQueue* msgq) {
-        _msgqueue = msgq;
-    }
-
-    MsgQueue* get_msgqueue() const {
-        return _msgqueue;
-    }
-
     void cmd_driver();
 };
 

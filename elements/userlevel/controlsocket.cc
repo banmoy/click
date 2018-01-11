@@ -94,7 +94,6 @@ ControlSocket::ControlSocket(MsgQueue* msgq)
 {
   _msgqueue = msgq;
   _is_gateway = true;
-  _msgid = 0;
 }
 
 ControlSocket::~ControlSocket()
@@ -939,13 +938,13 @@ ControlSocket::new_command(connection &conn, const String &handlername, String p
   Message msg;
   msg.cmd = handlername;
   msg.arg = param;
-  msg.id = _msgid++;
-  _msg_status[msg.id] = 0; // processing
+  msg.id = router()->master()->get_msg_id();
+  router()->master()->set_msg_status(msg.id, 0); // processing
 
-  _msgqueue->lock();
-  _msgqueue->add_message(msg);
-  _msgqueue->unlock();
-  _msgqueue->wake();
+  // _msgqueue->lock();
+  // _msgqueue->add_message(msg);
+  // _msgqueue->unlock();
+  // _msgqueue->wake();
   conn.message(CSERR_OK, "Command '" + handlername + "' OK");
   conn.out_text << "Transaction id: " << msg.id << '\r' << '\n';
   return 0;
