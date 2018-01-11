@@ -2,7 +2,7 @@
 #ifndef CLICK_MSGQUEUE_HH
 #define CLICK_MSGQUEUE_HH
 
-# include <pthread.h>
+#include <pthread.h>
 
 #include <queue>
 
@@ -54,6 +54,8 @@ class MsgQueue { public:
 inline
 MsgQueue::MsgQueue()
 {
+    pthread_mutex_init(&_lock, NULL);
+    pthread_cond_init(&_cond, NULL);
 }
 
 inline

@@ -25,6 +25,7 @@
 #include <click/router.hh>
 #include <click/routerthread.hh>
 #include <click/master.hh>
+#include <click/driver.hh>
 #if CLICK_LINUXMODULE
 # include <click/cxxprotect.h>
 CLICK_CXX_PROTECT
@@ -563,6 +564,7 @@ RouterThread::cmd_driver() {
         Message msg = msg_queue->get_message();
         msg_queue->unlock();
         int ret = -1;
+        printf("%s : %s\n", msg.cmd.mutable_data(), msg.arg.data());
         if(msg.cmd == "addnf") {
             ret = add_nf(msg.arg);
         } else if(msg.cmd == "delnf") {
@@ -787,11 +789,15 @@ RouterThread::thread_state_name(int ts)
 
 int
 RouterThread::add_nf(String config_file) {
+    String filename;
+    Router* router = click_read_router(filename, false, NULL, false, master());
+    router->initialize(ErrorHandler::silent_handler());
     return 0;
 }
 
 int
 RouterThread::delete_nf(String router_name) {
+    printf("delnf\n");
     return 0;
 }
 

@@ -24,6 +24,7 @@
 #include <click/error.hh>
 #include <click/timer.hh>
 #include <click/router.hh>
+#include <click/master.hh>
 #include <click/straccum.hh>
 #include <click/llrpc.h>
 #include <click/msgqueue.hh>
@@ -935,16 +936,19 @@ ControlSocket::add_handlers()
 int
 ControlSocket::new_command(connection &conn, const String &handlername, String param)
 {
+  Master* master = router()->master();
+  MsgQueue* msgq = master->get_msg_queue();
   Message msg;
   msg.cmd = handlername;
   msg.arg = param;
-  msg.id = router()->master()->get_msg_id();
-  router()->master()->set_msg_status(msg.id, 0); // processing
+  msg.id = master->get_msg_id();
+  master->set_msg_status(msg.id, 0); // processing
 
-  // _msgqueue->lock();
-  // _msgqueue->add_message(msg);
-  // _msgqueue->unlock();
-  // _msgqueue->wake();
+  msgq->lock();
+  msgq->add_message(msg);
+  msgq->unlock();
+  msgq->wake();
+
   conn.message(CSERR_OK, "Command '" + handlername + "' OK");
   conn.out_text << "Transaction id: " << msg.id << '\r' << '\n';
   return 0;
