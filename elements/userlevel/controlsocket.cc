@@ -452,51 +452,46 @@ ControlSocket::proxied_handler_name(const String &n) const
 const Handler*
 ControlSocket::parse_handler(connection &conn, const String &full_name, Element **es)
 {
-  // Parse full_name into element_name and handler_name.
-  String canonical_name = canonical_handler_name(full_name);
 
-  // Check for proxy.
-  if (_proxy) {
-    // collect errors from proxy
-    ControlSocketErrorHandler errh;
-    _proxied_handler = proxied_handler_name(canonical_name);
-    _proxied_errh = &errh;
-    const Handler* h = Router::handler(_proxy, _proxied_handler);
-    _proxied_errh = 0;
-
-    if (errh.nerrors() > 0) {
-      conn.transfer_messages(CSERR_NO_SUCH_HANDLER, String(), &errh);
-      return 0;
-    } else if (!h) {
-      conn.message(CSERR_NO_SUCH_HANDLER, "No proxied handler named '" + full_name + "'");
-      return 0;
-    } else {
-      *es = _proxy;
-      return h;
-    }
-  }
-
-  // Otherwise, find element.
+  Router *r;
   Element *e;
-  const char *dot = find(canonical_name, '.');
   String hname;
 
-  if (dot != canonical_name.end()) {
-    String ename = canonical_name.substring(canonical_name.begin(), dot);
-    e = router()->find(ename);
+  const char *rdot = find(full_name, '.');
+  if(rdot==full_name.begin()) {
+    conn.message(CSERR_SYNTAX, "Syntax error: no router name");
+    return 0;
+  }
+  String rname = full_name.substring(full_name.begin(), rdot);
+
+  r = router()->master()->get_router(rname);
+  if(!r) {
+    conn.message(CSERR_NO_SUCH_ROUTER, "No router named '" + rname + "'");
+    return 0;
+  }
+
+  String left_name = full_name.substring(rdot+1, full_name.end());
+  const char *edot = find(left_name, '.');
+  if(edot!=left_name.end() && edot==left_name.begin()) {
+    conn.message(CSERR_SYNTAX, "Syntax error: not element name");
+    return 0;
+  }
+  if (edot != left_name.end()) {
+    String ename = left_name.substring(left_name.begin(), edot);
+    e = r->find(ename);
     if (!e) {
       int num;
-      if (IntArg().parse(ename, num) && num > 0 && num <= router()->nelements())
-	e = router()->element(num - 1);
+      if (IntArg().parse(ename, num) && num > 0 && num <= r->nelements())
+	     e = r->element(num - 1);
     }
     if (!e) {
       conn.message(CSERR_NO_SUCH_ELEMENT, "No element named '" + ename + "'");
       return 0;
     }
-    hname = canonical_name.substring(dot + 1, canonical_name.end());
+    hname = left_name.substring(edot + 1, left_name.end());
   } else {
-    e = router()->root_element();
-    hname = canonical_name;
+    e = r->root_element();
+    hname = left_name;
   }
 
   // Then find handler.
@@ -532,7 +527,7 @@ ControlSocket::read_command(connection &conn, const String &handlername, String 
     return conn.transfer_messages(CSERR_UNSPECIFIED, "Read handler '" + handlername + "' error", &errh);
 
   conn.message(CSERR_OK, "Read handler '" + handlername + "' OK");
-  conn.out_text << "DATA " << data.length() << '\r' << '\n' << data;
+  conn.out_text << "DATA " << data.length() << '\r' << '\n' << data << "\r\n";
   return 0;
 }
 
@@ -787,6 +782,26 @@ ControlSocket::parse_command(connection &conn, const String &line)
     if (words.size() > 2)
       data = line.substring(words[2].begin(), words.back().end());
     return manage_command(conn, words[1], data);
+  } else if (command == "QUERY") {
+    if (words.size() < 2)
+      return conn.message(CSERR_SYNTAX, "Wrong number of arguments");
+    int tid;
+    if(!IntArg().parse(words[1], tid) || tid<0) {
+      return conn.message(CSERR_OK, "Invalid message id: " + words[1]);
+    }
+    int status = router()->master()->get_msg_status(tid);
+    if(status == -2) {
+      return conn.message(CSERR_OK, "Message " + words[1] + " doesn't exist");
+    }
+    String msg;
+    if(status == -1) {
+      msg = "failed";
+    } else if(status == 0) {
+      msg = "processing";
+    } else if(status == 1) {
+      msg = "successful";
+    }
+    return conn.message(CSERR_OK, "Message " + words[1] + " " + msg);
   } else if (command == "HELP") {
     conn.message(CSERR_OK, "Commands supported:", true);
     conn.message(CSERR_OK, "READ handler [arg...]   call read handler, return DATA", true);

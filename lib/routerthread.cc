@@ -566,7 +566,7 @@ RouterThread::cmd_driver() {
         Message msg = msg_queue->get_message();
         msg_queue->unlock();
         int ret = -1;
-        printf("%s : %s\n", msg.cmd.mutable_data(), msg.arg.data());
+        // printf("%s : %s\n", msg.cmd.mutable_data(), msg.arg.mutable_data());
         if(msg.cmd == "addnf") {
             ret = add_nf(msg.arg);
         } else if(msg.cmd == "delnf") {
@@ -791,20 +791,18 @@ RouterThread::thread_state_name(int ts)
 
 int
 RouterThread::add_nf(String config_file) {
-    String filename;
-    StringArg().parse();
-    Router* router = click_read_router(filename, false, NULL, false, master());
+    config_file.trim_space();
+    Router* router = click_read_router(config_file, false, NULL, false, master());
     router->initialize(ErrorHandler::silent_handler());
     String router_name = router->router_info()->router_name();
     master()->_router_map.insert(router_name, router);
     router->activate(ErrorHandler::default_handler());
-    printf("router %s activated\n");
+    printf("router %s activated\n", router->router_info()->router_name().mutable_data());
     return 0;
 }
 
 int
 RouterThread::delete_nf(String router_name) {
-    printf("delnf\n");
     return 0;
 }
 

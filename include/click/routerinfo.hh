@@ -1,7 +1,7 @@
 #ifndef CLICK_ROUTERINFO_H
 #define CLICK_ROUTERINFO_H
 
-#include <string.hh>
+#include <click/string.hh>
 
 class RouterInfo {
 public:

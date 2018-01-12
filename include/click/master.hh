@@ -4,6 +4,7 @@
 #include <click/router.hh>
 #include <click/atomic.hh>
 #if CLICK_USERLEVEL
+#include <unordered_map>
 #include <click/msgqueue.hh>
 #include <click/hashmap.hh>
 # include <signal.h>
@@ -153,6 +154,10 @@ public:
             // non exist
             return -2;
         }
+    }
+
+    Router* get_router(String rname) {
+        return _router_map.find(rname, 0);
     }
 };
 

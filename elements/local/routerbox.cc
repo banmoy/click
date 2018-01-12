@@ -1,4 +1,5 @@
 #include <click/config.h>
+#include <click/args.hh>
 #include "routerbox.hh"
 #include <click/router.hh>
 CLICK_DECLS

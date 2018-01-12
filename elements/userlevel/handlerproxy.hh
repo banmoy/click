@@ -18,6 +18,7 @@ class HandlerProxy : public Element { public:
     enum {
 	CSERR_OK		= 200,
 	CSERR_SYNTAX		= 500,
+    CSERR_NO_SUCH_ROUTER    = 502,
 	CSERR_NO_SUCH_ELEMENT	= 510,
 	CSERR_NO_SUCH_HANDLER	= 511,
 	CSERR_HANDLER_ERROR	= 520,

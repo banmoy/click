@@ -6,7 +6,7 @@
 
 class RouterBox : public Element, public RouterInfo {
 public:
-    RouterＢox() CLICK_COLD;
+    RouterBox() CLICK_COLD;
     ~RouterBox() CLICK_COLD;
 
     const char *class_name() const { return "RouterBox"; }
