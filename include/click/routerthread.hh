@@ -250,8 +250,13 @@ private:
 
     int delete_nf(String router_name);
 
+    int move_nf(String info);
+
+    int add_thread(String nstr);
+
 public:
     void cmd_driver();
+    atomic_uint32_t _task_num;
 };
 
 

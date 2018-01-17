@@ -319,6 +319,8 @@ class ControlSocket : public Element { public:
 private:
 
     int manage_command(connection &conn, const String &, String);
+
+    static String read_handler(Element *, void *) CLICK_COLD;
 };
 
 CLICK_ENDDECLS

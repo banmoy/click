@@ -347,6 +347,7 @@ class Router { public:
     /** @cond never */
     friend class Master;
     friend class Task;
+    friend class RouterThread;
     friend int Element::set_nports(int, int);
     /** @endcond never */
 
@@ -354,6 +355,8 @@ private:
     RouterInfo* _router_info;
 
 public:
+    Vector<Task*> _tasks;
+
     void set_router_info(RouterInfo* ri) {
         _router_info = ri;
     }

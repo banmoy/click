@@ -33,6 +33,7 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <cmath>
 CLICK_DECLS
 
 const char ControlSocket::protocol_version[] = "1.3";
@@ -527,7 +528,7 @@ ControlSocket::read_command(connection &conn, const String &handlername, String 
     return conn.transfer_messages(CSERR_UNSPECIFIED, "Read handler '" + handlername + "' error", &errh);
 
   conn.message(CSERR_OK, "Read handler '" + handlername + "' OK");
-  conn.out_text << "DATA " << data.length() << '\r' << '\n' << data << "\r\n";
+  conn.out_text << "DATA " << data.length() << '\r' << '\n' << data;
   return 0;
 }
 
@@ -936,6 +937,8 @@ ControlSocket::proxy_error_function(const String &h, void *thunk)
     return (h == cs->_proxied_handler ? cs->_proxied_errh : 0);
 }
 
+enum { H_ROUTER_NUM, H_ELEMENT_NUM, H_THREAD_NUMBER, H_ELEMENT_PER_THREAD, H_LOAD_PER_THREAD };
+
 void
 ControlSocket::add_handlers()
 {
@@ -943,6 +946,11 @@ ControlSocket::add_handlers()
 	add_data_handlers("port", Handler::OP_READ, &_unix_pathname);
     else if (_type == type_unix)
 	add_data_handlers("filename", Handler::OP_READ, &_unix_pathname);
+  add_read_handler("router_num", read_handler, H_ROUTER_NUM);
+  add_read_handler("element_num", read_handler, H_ELEMENT_NUM);
+  add_read_handler("thread_num", read_handler, H_THREAD_NUMBER);
+  add_read_handler("element_per_thread", read_handler, H_ELEMENT_PER_THREAD);
+  add_read_handler("load_per_thread", read_handler, H_LOAD_PER_THREAD);
 }
 
 int
@@ -964,6 +972,72 @@ ControlSocket::manage_command(connection &conn, const String &handlername, Strin
   conn.message(CSERR_OK, "Command '" + handlername + "' OK");
   conn.out_text << "Transaction id: " << msg.id << '\r' << '\n';
   return 0;
+}
+
+String
+ControlSocket::read_handler(Element *e, void *thunk)
+{
+    ControlSocket *c = (ControlSocket *)e;
+    Router* router = c->router();
+    Master* master = router->master();
+    switch ((intptr_t)thunk) {
+      case H_ROUTER_NUM: {
+        int num = master->_router_map.size();
+        return String(num-1);
+      }
+      case H_ELEMENT_NUM: {
+        int num = 0;
+        master->lock_read();
+        HashMap<String, Router*>& routers = c->router()->master()->_router_map;
+        for(HashMap<String, Router*>::iterator i = routers.begin(); i.live(); i++) {
+          Router* r = i.value();
+          num += r->_tasks.size();
+        }
+        master->unlock_rw();
+        return String(num);
+      }
+      case H_THREAD_NUMBER: {
+        return String(master->run_nthreads());
+      }
+      case H_ELEMENT_PER_THREAD: {
+        String ret;
+        for(int i=0; i<master->run_nthreads(); ++i) {
+          if (i) ret += ",";
+          ret += String(i+1) + ":" + String(master->thread(i+1)->_task_num);
+        }
+        return ret;
+    }
+      case H_LOAD_PER_THREAD: {
+        int nthread = master->run_nthreads();
+        Vector<int> load(nthread+1, 0);
+        String ret;
+        master->lock_read();
+        HashMap<String, Router*>& routers = master->_router_map;
+        for(HashMap<String, Router*>::iterator i = routers.begin(); i.live(); i++) {
+          Router* r = i.value();
+          for(int j=0; j<r->_tasks.size(); ++j) {
+            int t = r->_tasks[j]->home_thread_id();
+            load[t] += r->_tasks[j]->cycles();
+          }
+        }
+        master->unlock_rw();
+        int sum  = 0, sum2 = 0;
+        for(int k=1; k<=nthread; ++k) {
+          sum += load[k];
+          sum2 += load[k]*load[k];
+        }
+        double sq = std::sqrt((double)sum2);
+        if(sq < 1e-6)
+          sq = 1;
+        for(int k=1; k<=nthread; ++k) {
+          ret += String(k) + ":" + String(load[k]/sq) + ",";
+        }
+        ret += String("average:") + String(sum/nthread/sq);
+        return ret;
+      }
+      default:
+        return "<error>";
+    }
 }
 
 CLICK_ENDDECLS

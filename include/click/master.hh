@@ -19,6 +19,7 @@ CLICK_DECLS
 class Master { public:
 
     Master(int nthreads);
+    Master(int capacity, int nthreads, int cmdthreads);
     ~Master();
 
     void use();
@@ -69,7 +70,11 @@ class Master { public:
 
     // THREADS
     RouterThread **_threads;
+    int _capacity;
     int _nthreads;
+
+    RouterThread **_cmd_threads;
+    int _ncmdthreads;
 
     // ROUTERS
     Router *_routers;
@@ -130,10 +135,28 @@ private:
     std::unordered_map<int, int> _msg_status;
 
 public:
+    pthread_rwlock_t _rw_lock;
     HashMap<String, Router*> _router_map;
+    Vector<Router*> _unused_tasks;
+
+    inline void lock_read() {
+        pthread_rwlock_rdlock(&_rw_lock);
+    }
+
+    inline void lock_write() {
+        pthread_rwlock_wrlock(&_rw_lock);
+    }
+
+    inline void unlock_rw() {
+        pthread_rwlock_unlock(&_rw_lock);
+    }
 
 public:
     MsgQueue* _msg_queue;
+
+#if (HAVE_MULTITHREAD)
+  Vector<pthread_t> _pthreads;
+#endif
 
     MsgQueue* get_msg_queue() const {
         return _msg_queue;
@@ -159,7 +182,38 @@ public:
     Router* get_router(String rname) {
         return _router_map.find(rname, 0);
     }
+
+    int add_thread();
+
+    int run_nthreads() const;
+
+    int max_cmd_thread() const;
+
+    int min_cmd_thread() const;
+
+    static int click_affinity_offset;
+
+    static void *thread_driver(void *user_data);
+
+    static void *thread_cmd_driver(void *user_data);
+
+    static void do_set_affinity(pthread_t p, int cpu);
 };
+
+inline int
+Master::min_cmd_thread() const {
+    return _capacity - 1;
+}
+
+inline int
+Master::max_cmd_thread() const {
+    return _capacity -2 + _ncmdthreads;
+}
+
+inline int
+Master::run_nthreads() const {
+    return _nthreads - 2;
+}
 
 inline int
 Master::nthreads() const
@@ -172,10 +226,11 @@ Master::thread(int id) const
 {
     // return the requested thread, or the quiescent thread if there's no such
     // thread
+    if(id > _capacity-2)
+        return _cmd_threads[id-(_capacity-2)-1];
     if (unsigned(id + 1) < unsigned(_nthreads))
         return _threads[id + 1];
-    else
-        return _threads[0];
+    return _threads[0];
 }
 
 inline void

@@ -68,6 +68,50 @@ Master::Master(int nthreads)
 #if CLICK_NS
     _simnode = 0;
 #endif
+    pthread_rwlock_init(&_rw_lock, 0);
+}
+
+// nthreads: run threads, not including -1 and 0
+// capacity: max run threads, not including -1 and 0
+Master::Master(int capacity, int nthreads, int cmdthreads)
+    : _routers(0)
+{
+    _refcount = 0;
+    _master_paused = 0;
+
+    // include thread 0
+    _capacity = capacity + 2;
+    _nthreads = nthreads + 2;
+    _threads = new RouterThread *[_capacity];
+    for (int tid = -1; tid <= nthreads; tid++)
+        _threads[tid + 1] = new RouterThread(this, tid);
+
+    _ncmdthreads = cmdthreads;
+    _cmd_threads = new RouterThread *[_ncmdthreads];
+    for (int tid = 1; tid<=cmdthreads; ++tid) {
+        _cmd_threads[tid-1] = new RouterThread(this, capacity+tid);
+    }
+
+#if CLICK_USERLEVEL
+    // signal information
+    signals_pending = 0;
+    _siginfo = 0;
+    sigemptyset(&_sig_dispatching);
+    signal_thread = _threads[1];
+    _msg_queue = new MsgQueue();
+    _msg_id = 0;
+#endif
+
+#if CLICK_LINUXMODULE
+    spin_lock_init(&_master_lock);
+    _master_lock_task = 0;
+    _master_lock_count = 0;
+#endif
+
+#if CLICK_NS
+    _simnode = 0;
+#endif
+    pthread_rwlock_init(&_rw_lock, 0);
 }
 
 Master::~Master()
@@ -525,6 +569,48 @@ Master::info() const
     }
     return sa.take_string();
 }
-
 #endif
+
+
+int Master::click_affinity_offset = -1;
+
+void *
+Master::thread_driver(void *user_data)
+{
+    RouterThread *thread = static_cast<RouterThread *>(user_data);
+    thread->driver();
+    return 0;
+}
+
+void *
+Master::thread_cmd_driver(void *user_data) {
+  RouterThread *thread = static_cast<RouterThread*>(user_data);
+  thread->cmd_driver();
+  return 0;
+}
+
+void
+Master::do_set_affinity(pthread_t p, int cpu) {
+    if (Master::click_affinity_offset >= 0) {
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        CPU_SET(cpu + Master::click_affinity_offset, &set);
+        pthread_setaffinity_np(p, sizeof(cpu_set_t), &set);
+    }
+}
+
+int
+Master::add_thread() {
+    if(_nthreads == _capacity)
+        return -1;
+    int n = _nthreads;
+    RouterThread* rt = new RouterThread(this, n-1);
+    _threads[_nthreads] = rt;
+    pthread_t p;
+    pthread_create(&p, 0, Master::thread_driver, rt);
+    Master::do_set_affinity(p, n-1);
+    _pthreads.push_back(p);
+    ++_nthreads;
+    return n-1;
+}
 CLICK_ENDDECLS

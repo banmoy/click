@@ -133,6 +133,8 @@ RouterThread::RouterThread(Master *master, int id)
     static_assert(THREAD_QUIESCENT == (int) ThreadSched::THREAD_QUIESCENT
                   && THREAD_UNKNOWN == (int) ThreadSched::THREAD_UNKNOWN,
                   "Thread constants screwup.");
+
+    _task_num = 0;
 }
 
 RouterThread::~RouterThread()
@@ -556,6 +558,20 @@ RouterThread::process_pending()
 void
 RouterThread::cmd_driver() {
 
+    _driver_entered = true;
+#if CLICK_LINUXMODULE
+    // this task is running the driver
+    _linux_task = current;
+#elif CLICK_USERLEVEL
+    select_set().initialize();
+# if CLICK_USERLEVEL && HAVE_MULTITHREAD
+    _running_processor = click_current_processor();
+#  if HAVE___THREAD_STORAGE_CLASS
+    click_current_thread_id = _id | 0x40000000;
+#  endif
+# endif
+#endif
+
     MsgQueue* msg_queue = master()->get_msg_queue();
 
     while(1) {
@@ -571,6 +587,10 @@ RouterThread::cmd_driver() {
             ret = add_nf(msg.arg);
         } else if(msg.cmd == "delnf") {
             ret = delete_nf(msg.arg);
+        } else if(msg.cmd == "movenf") {
+            ret = move_nf(msg.arg);
+        } else if(msg.cmd == "addthread") {
+            ret = add_thread(msg.arg);
         }
         master()->set_msg_status(msg.id, (ret==-1 ? -1 : 1));
     }
@@ -794,15 +814,117 @@ RouterThread::add_nf(String config_file) {
     config_file.trim_space();
     Router* router = click_read_router(config_file, false, NULL, false, master());
     router->initialize(ErrorHandler::silent_handler());
-    String router_name = router->router_info()->router_name();
-    master()->_router_map.insert(router_name, router);
+    String router_name = router->router_info()->router_name();    
     router->activate(ErrorHandler::default_handler());
+    master()->lock_write();
+    master()->_router_map.insert(router_name, router);
+    master()->unlock_rw();
     printf("router %s activated\n", router->router_info()->router_name().mutable_data());
+    printf("number of tasks: %d\n", router->_tasks.size());
     return 0;
 }
 
 int
 RouterThread::delete_nf(String router_name) {
+    Router* router = master()->get_router(router_name);
+    if(!router) {
+        return -1;
+    }
+
+    driver_lock_tasks();
+
+    // move tasks
+    for(int i=0; i<router->_tasks.size(); ++i) {
+        router->_tasks[i]->kill(_id);
+    }
+
+    while(1) {
+        Task::Pending my_pending = _pending_head;
+        // process the list
+        int count = 0;
+        while (my_pending.x > 2) {
+            Task *t = my_pending.t;
+            my_pending = t->_pending_nextptr;
+            ++count;
+        }
+        if(count == router->_tasks.size())
+            break;
+        run_os();
+    }
+
+    driver_unlock_tasks();
+
+    _pending_head.x = 0;
+    _pending_tail = &_pending_head;
+
+    Master* m = master();
+    // router->_running = Router::RUNNING_DEAD;
+    // router->unuse(); bug
+    m->_unused_tasks.push_back(router);
+    m->lock_master();
+    Router **pprev = &(m->_routers);
+    for (Router *r = *pprev; r; r = r->_next_router) {
+       if (r != router) {
+           *pprev = r;
+           pprev = &r->_next_router;
+        }
+    }
+    m->_refcount--;  
+    m->unlock_master();
+
+    m->lock_write();
+    m->_router_map.remove(router_name);
+    m->unlock_rw();
+    printf("delete router %s\n", router_name.mutable_data());
+
+    return 0;
+}
+
+int
+RouterThread::move_nf(String info) {
+    String who;
+    int where = 0;
+    int pos = 0, len = info.length(), first;
+    while (pos < len && isspace((unsigned char) info[pos]))
+      pos++;
+    first = pos;
+    while (pos < len && !isspace((unsigned char) info[pos]))
+      pos++;
+    who = info.substring(first, pos - first);
+    while (pos < len && isspace((unsigned char) info[pos]))
+      pos++;
+    first = pos;
+    while (pos < len && !isspace((unsigned char) info[pos]))
+      pos++;
+    IntArg().parse(info.substring(first, pos - first), where);
+
+    const char *dot1 = find(who, '.');
+    String rname = who.substring(who.begin(), dot1);
+    String ename = who.substring(dot1+1, who.end());
+
+    Router* r = master()->get_router(rname);
+    Element* e = r->find(ename);
+    Task* t = 0;
+    for(int i=0; i<r->_tasks.size(); ++i) {
+        if(r->_tasks[i]->element() == e) {
+            t = r->_tasks[i];
+            break;
+        }
+    }
+    t->move_thread(where);
+
+    return 0;
+}
+
+int
+RouterThread::add_thread(String nstr) {
+    int num = 0;
+    IntArg().parse(nstr, num);
+    for(int i=0; i<num; ++i) {
+        int tid = master()->add_thread();
+        if(tid < 0)
+            break;
+    }
     return 0;
 }
 

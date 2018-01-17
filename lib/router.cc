@@ -373,7 +373,7 @@ Router::hard_home_thread_id(const Element *e) const
     if (x == ThreadSched::THREAD_UNKNOWN && _thread_sched)
         x = _thread_sched->initial_home_thread_id(e);
     if (x == ThreadSched::THREAD_UNKNOWN)
-        return 0;
+        return 1;
     return x;
 }
 

@@ -59,6 +59,8 @@
 #include <click/handlercall.hh>
 #include "elements/standard/quitwatcher.hh"
 #include "elements/userlevel/controlsocket.hh"
+#include "elements/local/routerbox.hh"
+#include "elements/threads/staticthreadsched.hh"
 CLICK_USING_DECLS
 
 #define HELP_OPT                300
@@ -163,6 +165,7 @@ static Master* click_master;
 static Router* click_router;
 static ErrorHandler* errh;
 static bool running = false;
+static int click_affinity_offset = -1;
 
 extern "C" {
 static void
@@ -298,39 +301,6 @@ static bool warnings = true;
 int click_nthreads = 1;
 bool dpdk_enabled = false;
 
-static String
-click_driver_control_socket_name(int number)
-{
-    if (!number)
-        return "click_driver@@ControlSocket";
-    else
-        return "click_driver@@ControlSocket@" + String(number);
-}
-
-#if HAVE_MULTITHREAD
-extern "C" {
-static void *thread_driver(void *user_data)
-{
-    RouterThread *thread = static_cast<RouterThread *>(user_data);
-    thread->driver();
-    return 0;
-}
-
-static void *thread_cmd_driver(void *user_data) {
-  RouterThread *thread = static_cast<RouterThread*>(user_data);
-  thread->cmd_driver();
-}
-
-# if HAVE_DPDK
-static int thread_driver_dpdk(void *user_data) {
-    RouterThread *thread = static_cast<RouterThread *>(user_data);
-    thread->driver();
-    return 0;
-}
-# endif
-}
-#endif
-
 static int
 cleanup(Clp_Parser *clp, int exit_value)
 {
@@ -340,20 +310,6 @@ cleanup(Clp_Parser *clp, int exit_value)
     return exit_value;
 }
 
-#if HAVE_DECL_PTHREAD_SETAFFINITY_NP
-static int click_affinity_offset = -1;
-void do_set_affinity(pthread_t p, int cpu) {
-    if (!dpdk_enabled && click_affinity_offset >= 0) {
-        cpu_set_t set;
-        CPU_ZERO(&set);
-        CPU_SET(cpu + click_affinity_offset, &set);
-        pthread_setaffinity_np(p, sizeof(cpu_set_t), &set);
-    }
-}
-#else
-# define do_set_affinity(p, cpu) /* nothing */
-#endif
-
 static Router*
 create_control_router(ErrorHandler* errh) {
     int before_errors = errh->nerrors();
@@ -362,16 +318,22 @@ create_control_router(ErrorHandler* errh) {
     if (!router)
         return 0;
 
+    router->add_element(new RouterBox(), "rb", "NAME sys", "click", 0);
+
     // add new ControlSockets
     int ncs = 0;
     for (String *it = cs_ports.begin(); it != cs_ports.end(); ++it, ++ncs)
-        router->add_element(new ControlSocket, click_driver_control_socket_name(ncs), "TCP, " + *it, "click", 0);
+        router->add_element(new ControlSocket, "cs", "TCP, " + *it, "click", 0);
+
+    router->add_element(new StaticThreadSched(), "sts", "rb 0, cs 0", "click", 0);
 
     // catch control-C and SIGTERM
     click_signal(SIGINT, stop_signal_handler, true);
     click_signal(SIGTERM, stop_signal_handler, true);
     // ignore SIGPIPE
     click_signal(SIGPIPE, SIG_IGN, false);
+
+    click_master->_router_map.insert("sys", router);
 
   if (errh->nerrors() == before_errors
       && router->initialize(errh) >= 0)
@@ -578,7 +540,8 @@ particular purpose.\n");
 #endif
 
   // parse configuration
-  click_master = new Master(click_nthreads);
+  click_master = new Master(10, click_nthreads, 2);
+  Master::click_affinity_offset = click_affinity_offset;
   click_router = create_control_router(errh);
   if (!click_router)
     return cleanup(clp, 1);
@@ -587,9 +550,6 @@ particular purpose.\n");
   click_master->set_control_router(click_router);
 
   int exit_value = 0;
-#if (HAVE_MULTITHREAD)
-  Vector<pthread_t> other_threads;
-#endif
 
   // run driver
   // 10.Apr.2004 - Don't run the router if it has no elements.
@@ -601,13 +561,19 @@ particular purpose.\n");
     }
 #if HAVE_MULTITHREAD
     {
-        for (int t = 1; t < click_nthreads; ++t) {
+        for (int t = 1; t <= click_nthreads; ++t) {
             pthread_t p;
-            pthread_create(&p, 0, thread_cmd_driver, click_master->thread(t));
-            other_threads.push_back(p);
-            do_set_affinity(p, t);
+            pthread_create(&p, 0, Master::thread_driver, click_master->thread(t));
+            click_master->_pthreads.push_back(p);
+            Master::do_set_affinity(p, t);
         }
-        do_set_affinity(pthread_self(), 0);
+        for (int t = click_master->min_cmd_thread(); t <= click_master->max_cmd_thread(); ++t) {
+            pthread_t p;
+            pthread_create(&p, 0, Master::thread_cmd_driver, click_master->thread(t));
+            click_master->_pthreads.push_back(p);
+            // do_set_affinity(p, t);
+        }
+        Master::do_set_affinity(pthread_self(), 0);
     }
 #endif
 
@@ -643,6 +609,7 @@ particular purpose.\n");
   }
 
 #if HAVE_MULTITHREAD
+  Vector<pthread_t>& other_threads = click_master->_pthreads;
   for (int i = 0; i < other_threads.size(); ++i)
       click_master->thread(i + 1)->wake();
   for (int i = 0; i < other_threads.size(); ++i)

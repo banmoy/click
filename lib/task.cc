@@ -272,6 +272,7 @@ Task::initialize(Element *owner, bool schedule)
     assert(owner && !initialized() && !scheduled());
 
     Router *router = owner->router();
+    router->_tasks.push_back(this);
     int tid = _status.home_thread_id;
     if (tid == -2)
         tid = router->home_thread_id(owner);
@@ -288,6 +289,7 @@ Task::initialize(Element *owner, bool schedule)
 #endif
 
     _status.home_thread_id = _thread->thread_id();
+    _thread->_task_num += 1;
     _status.is_scheduled = schedule;
     if (schedule)
         add_pending(false);
@@ -397,7 +399,9 @@ Task::process_pending(RouterThread* thread)
         SpinlockIRQ::flags_t flags = thread->_pending_lock.acquire();
         remove_from_scheduled_list();
         click_fence();
+        thread->_task_num -= 1;
         _thread = thread->master()->thread(status.home_thread_id);
+        _thread->_task_num += 1;
         thread->_pending_lock.release(flags);
     }
 
