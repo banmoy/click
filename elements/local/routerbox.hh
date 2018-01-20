@@ -15,8 +15,12 @@ public:
 
     String router_name();
 
+    void add_handlers() CLICK_COLD;
+
 private:
     String _router_name;
+
+    static String read_handler(Element*, void*) CLICK_COLD;
 };
 
 #endif

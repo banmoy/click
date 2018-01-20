@@ -294,6 +294,7 @@ class Task : private TaskLink { public:
 #if HAVE_MULTITHREAD
     inline int cycles() const;
     inline unsigned cycle_runs() const;
+    inline unsigned total_runs() const;
     inline void update_cycles(unsigned c);
 #endif
 
@@ -335,6 +336,7 @@ class Task : private TaskLink { public:
 #if HAVE_MULTITHREAD
     DirectEWMA _cycles;
     unsigned _cycle_runs;
+    unsigned _total_runs;
 #endif
 
     RouterThread *_thread;
@@ -397,6 +399,7 @@ Task::Task(TaskCallback f, void *user_data)
 #endif
 #if HAVE_MULTITHREAD
       _cycle_runs(0),
+      _total_runs(0),
 #endif
       _thread(0), _owner(0)
 {
@@ -421,6 +424,7 @@ Task::Task(Element* e)
 #endif
 #if HAVE_MULTITHREAD
       _cycle_runs(0),
+      _total_runs(0),
 #endif
       _thread(0), _owner(0)
 {
@@ -585,6 +589,7 @@ Task::fire()
 #endif
 #if HAVE_MULTITHREAD
     _cycle_runs++;
+    _total_runs++;
 #endif
     bool work_done;
     if (!_hook)
@@ -641,6 +646,12 @@ inline unsigned
 Task::cycle_runs() const
 {
     return _cycle_runs;
+}
+
+inline unsigned
+Task::total_runs() const
+{
+    return _total_runs;
 }
 
 inline void
