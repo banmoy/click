@@ -386,6 +386,8 @@ public:
     rate_t _rate;
 
     inline int rates();
+
+    double _task_load;
 };
 
 

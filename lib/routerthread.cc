@@ -44,7 +44,8 @@ CLICK_CXX_UNPROTECT
 #elif CLICK_USERLEVEL
 # include <click/msgqueue.hh>
 # include <fcntl.h>
-#include <iostream>
+# include <iostream>
+# include <cmath>
 #endif
 CLICK_DECLS
 
@@ -919,15 +920,27 @@ RouterThread::move_nf(String info) {
     return 0;
 }
 
+static int task_increasing_sorter(const void *va, const void *vb, void *) {
+    Task **a = (Task **)va, **b = (Task **)vb;
+    int ca = (*a)->cycles(), cb = (*b)->cycles();
+    return (ca < cb ? -1 : (cb < ca ? 1 : 0));
+}
+
+static int task_decreasing_sorter(const void *va, const void *vb, void *) {
+    Task **a = (Task **)va, **b = (Task **)vb;
+    double ca = (*a)->_task_load, cb = (*b)->_task_load;
+    return (ca < cb ? 1 : (cb < ca ? -1 : 0));
+}
+
 int
 RouterThread::balance_nf(String nullstr) {
     // index for thread starts from 1
-    int cpuNum = master()->nthreads();
+    int cpuNum = master()->run_nthreads();
     Vector<Task*> tasks;
     Vector<int> cycles;
     Vector<int> rates;
     Vector<double> oldTaskLoads;
-    Vector<double> oldCpuLoads(cpuNum, 0);
+    Vector<double> oldCpuLoads(cpuNum+1, 0);
     for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
         Vector<Task*>& ts = it.value()->_tasks;
         for(int i=0; i<ts.size(); i++) {
@@ -937,11 +950,69 @@ RouterThread::balance_nf(String nullstr) {
             oldTaskLoads.push_back((double)cycles[i] * (double)rates[i]);
             int tid = ts[i]->home_thread_id();
             oldCpuLoads[tid] += oldTaskLoads[i];
+            ts[i]->_task_load = oldTaskLoads[i];
         }
+    }
+    for(int i=0; i<tasks.size(); ++i) {
+        std::cout << tasks[i]->element()->name().c_str() << ": "
+                  << "cycle " << cycles[i]
+                  << ", rate " << rates[i]
+                  << std::endl;
     }
     for(int i=0; i<oldCpuLoads.size(); i++) {
         std::cout << oldCpuLoads[i] << std::endl;
     }
+
+    double oldAvgCpuLoad = 0, oldCpuBalance = 0;
+    for(int i=1; i<=cpuNum; i++) {
+        oldAvgCpuLoad += oldCpuLoads[i];
+    }
+    oldAvgCpuLoad = oldAvgCpuLoad / cpuNum;
+    for(int i=1; i<=cpuNum; i++) {
+        oldCpuBalance += (oldCpuLoads[i] - oldAvgCpuLoad) * (oldCpuLoads[i] - oldAvgCpuLoad);
+    }
+    oldCpuBalance = std::sqrt(oldCpuBalance/cpuNum);
+    std::cout << "old balance: " << oldCpuBalance << std::endl;
+
+    Vector<Task*> sortedTasks = tasks;
+    Vector<int> allocThread;
+    Task **tbegin = sortedTasks.begin();
+    click_qsort(tbegin, sortedTasks.size(), sizeof(Task *), task_decreasing_sorter);
+
+    Vector<double> newCpuLoads(cpuNum+1, 0);
+    for(int i=0; i<sortedTasks.size(); i++) {
+        int id = 1;
+        for(int j=1; j<=cpuNum; j++) {
+            if(newCpuLoads[j] < newCpuLoads[id]) {
+                id = j;
+            }
+        }
+        newCpuLoads[id] += sortedTasks[i]->_task_load;
+        allocThread.push_back(id);
+    }
+
+    double newAvgCpuLoad = 0, newCpuBalance = 0;
+    for(int i=1; i<=cpuNum; i++) {
+        newAvgCpuLoad += newCpuLoads[i];
+    }
+    newAvgCpuLoad = newAvgCpuLoad / cpuNum;
+    for(int i=1; i<=cpuNum; i++) {
+        newCpuBalance += (newCpuLoads[i] - newAvgCpuLoad) * (newCpuLoads[i] - newAvgCpuLoad);
+    }
+    newCpuBalance = std::sqrt(newCpuBalance/cpuNum);
+    std::cout << "new balance: " << newCpuBalance << std::endl;
+
+    for(int i=0; i<sortedTasks.size(); i++) {
+        Element *ele = sortedTasks[i]->element();
+        std::cout << ele->name().c_str() << " from "
+                  << sortedTasks[i]->home_thread_id() << " to "
+                  << allocThread[i]
+                  << std::endl;
+    }
+
+    // for(int i=0; i<sortedTasks.size(); i++) {
+    //     sortedTasks[i]->move_thread(allocThread[i]);
+    // }
 }
 
 int
