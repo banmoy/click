@@ -41,43 +41,34 @@ RatedUdpSource::RatedUdpSource()
 int
 RatedUdpSource::configure(Vector<String> &conf, ErrorHandler *errh)
 {
-    int pktnum = 1;
     int len = 60;
     unsigned rate = 10;
     int limit = -1;
     bool active = true, stop = false;
     int guard = 10;
 
-    Args eleargs(conf, this, errh);
-
-    eleargs.read_mp("PKTNUM", pktnum)
-           .read_mp("SRCETH", EtherAddressArg(), _ethh.ether_shost)
-           .read_mp("SRCIP", _sipaddr)
-           .read_mp("SPORT", IPPortArg(IP_PROTO_UDP), _sport)
-           .read_mp("DSTETH", EtherAddressArg(), _ethh.ether_dhost)
-           .read_mp("DSTIP", _dipaddr)
-           .read_mp("DPORT", IPPortArg(IP_PROTO_UDP), _dport)
-    
-    if(pktnum > 1) {
-        eleargs.read_mp("SRCETH1", EtherAddressArg(), _ethh1.ether_shost)
-           .read_mp("SRCIP1", _sipaddr1)
-           .read_mp("SPORT1", IPPortArg(IP_PROTO_UDP), _sport1)
-           .read_mp("DSTETH1", EtherAddressArg(), _ethh1.ether_dhost)
-           .read_mp("DSTIP1", _dipaddr1)
-           .read_mp("DPORT1", IPPortArg(IP_PROTO_UDP), _dport1);
-    }
-
-    eleargs.read("RATE", rate)
-           .read("LIMIT", limit)
-           .read("ACTIVE", active)
-           .read("STOP", stop)
-           .read("GUARD", guard);
-
-    if(eleargs.complete() < 0)
+    if(Args(conf, this, errh)
+       .read_mp("SRCETH", EtherAddressArg(), _ethh.ether_shost)
+       .read_mp("SRCIP", _sipaddr)
+       .read_mp("SPORT", IPPortArg(IP_PROTO_UDP), _sport)
+       .read_mp("DSTETH", EtherAddressArg(), _ethh.ether_dhost)
+       .read_mp("DSTIP", _dipaddr)
+       .read_mp("DPORT", IPPortArg(IP_PROTO_UDP), _dport)
+       .read_mp("SRCETH1", EtherAddressArg(), _ethh1.ether_shost)
+       .read_mp("SRCIP1", _sipaddr1)
+       .read_mp("SPORT1", IPPortArg(IP_PROTO_UDP), _sport1)
+       .read_mp("DSTETH1", EtherAddressArg(), _ethh1.ether_dhost)
+       .read_mp("DSTIP1", _dipaddr1)
+       .read_mp("DPORT1", IPPortArg(IP_PROTO_UDP), _dport1);
+       .read_p("RATE", rate)
+       .read_p("GUARD", guard);
+       .read_p("LIMIT", limit)
+       .read_p("ACTIVE", active)
+       .read_p("STOP", stop)
+       .complete() < 0)
 	     return -1;
 
 
-    _pktnum = pktnum;
     _len = len<60 ? 60 : len;
     _tb.assign(rate, (rate < 200 ? 2 : rate / 100));
     _limit = (limit >= 0 ? unsigned(limit) : NO_LIMIT);
@@ -98,8 +89,7 @@ RatedUdpSource::initialize(ErrorHandler *errh)
     _timer.initialize(this);
 
     setup_packet();
-    if(_pktnum > 1)
-      setup_packet1();
+    setup_packet1();
 
     srand (time(NULL));
 
@@ -165,7 +155,7 @@ RatedUdpSource::pull(int)
 
 Packet*
 RatedUdpSource::get_packet() {
-  return _pktnum == 1 || (rand()%10)<_guard ? _packet : _packet1;
+  return (rand()%10)<_guard ? _packet : _packet1;
 }
 
 void
