@@ -1023,7 +1023,7 @@ ControlSocket::read_handler(Element *e, void *thunk)
           }
         }
         master->unlock_rw();
-        double sum  = 0, double = 0;
+        double sum  = 0, sum2 = 0;
         for(int k=1; k<=nthread; ++k) {
           sum += load[k];
           sum2 += load[k]*load[k];

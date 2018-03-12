@@ -385,7 +385,7 @@ public:
 #endif
     rate_t _rate;
 
-    inline int rates() const;
+    inline int rates();
 };
 
 
@@ -655,7 +655,7 @@ Task::cycles() const
 }
 
 inline int
-Task::rates() const
+Task::rates()
 {
     _rate.update(0);
     return _rate.rate();

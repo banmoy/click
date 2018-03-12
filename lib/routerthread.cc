@@ -928,9 +928,8 @@ RouterThread::balance_nf(String nullstr) {
     Vector<int> rates;
     Vector<double> oldTaskLoads;
     Vector<double> oldCpuLoads(cpuNum, 0);
-    HashMap<String, Router*>::const_iterator it;
-    for(it = master()->_router_map.begin(); it.live(); it++) {
-        Vector<Task*>& ts = it.value();
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        Vector<Task*>& ts = it.value()->_tasks;
         for(int i=0; i<ts.size(); i++) {
             tasks.push_back(ts[i]);
             cycles.push_back(ts[i]->cycles());
