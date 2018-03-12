@@ -44,6 +44,7 @@ CLICK_CXX_UNPROTECT
 #elif CLICK_USERLEVEL
 # include <click/msgqueue.hh>
 # include <fcntl.h>
+#include <iostream>
 #endif
 CLICK_DECLS
 
@@ -589,6 +590,8 @@ RouterThread::cmd_driver() {
             ret = delete_nf(msg.arg);
         } else if(msg.cmd == "movenf") {
             ret = move_nf(msg.arg);
+        } else if(msg.cmd == "balancenf") {
+            ret = balance_nf(msg.arg);
         } else if(msg.cmd == "addthread") {
             ret = add_thread(msg.arg);
         }
@@ -914,6 +917,32 @@ RouterThread::move_nf(String info) {
     t->move_thread(where);
 
     return 0;
+}
+
+int
+RouterThread::balance_nf(String nullstr) {
+    // index for thread starts from 1
+    int cpuNum = master()->nthreads();
+    Vector<Task*> tasks;
+    Vector<int> cycles;
+    Vector<int> rates;
+    Vector<double> oldTaskLoads;
+    Vector<double> oldCpuLoads(cpuNum, 0);
+    HashMap<String, Router*>::const_iterator it;
+    for(it = master()->_router_map.begin(); it.live(); it++) {
+        Vector<Task*>& ts = it.value();
+        for(int i=0; i<ts.size(); i++) {
+            tasks.push_back(ts[i]);
+            cycles.push_back(ts[i]->cycles());
+            rates.push_back(ts[i]->rates());
+            oldTaskLoads.push_back((double)cycles[i] * (double)rates[i]);
+            int tid = ts[i]->home_thread_id();
+            oldCpuLoads[tid] += oldTaskLoads[i];
+        }
+    }
+    for(int i=0; i<oldCpuLoads.size(); i++) {
+        std::cout << oldCpuLoads[i] << std::endl;
+    }
 }
 
 int

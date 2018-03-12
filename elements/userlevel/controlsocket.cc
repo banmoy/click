@@ -1009,7 +1009,7 @@ ControlSocket::read_handler(Element *e, void *thunk)
     }
       case H_LOAD_PER_THREAD: {
         int nthread = master->run_nthreads();
-        Vector<int> load(nthread+1, 0);
+        Vector<double> load(nthread+1, 0);
         String ret;
         master->lock_read();
         HashMap<String, Router*>& routers = master->_router_map;
@@ -1017,16 +1017,18 @@ ControlSocket::read_handler(Element *e, void *thunk)
           Router* r = i.value();
           for(int j=0; j<r->_tasks.size(); ++j) {
             int t = r->_tasks[j]->home_thread_id();
-            load[t] += r->_tasks[j]->cycles();
+            int cycle = r->_tasks[j]->cycles();
+            int rate = r->_tasks[j]->rates();
+            load[t] += (double)cycle * (double)rate;
           }
         }
         master->unlock_rw();
-        int sum  = 0, sum2 = 0;
+        double sum  = 0, double = 0;
         for(int k=1; k<=nthread; ++k) {
           sum += load[k];
           sum2 += load[k]*load[k];
         }
-        double sq = std::sqrt((double)sum2);
+        double sq = std::sqrt(sum2);
         if(sq < 1e-6)
           sq = 1;
         for(int k=1; k<=nthread; ++k) {

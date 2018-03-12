@@ -375,6 +375,17 @@ class Task : private TaskLink { public:
 
     friend class RouterThread;
     friend class Master;
+
+public:
+    #ifdef HAVE_INT64_TYPES
+    // Reduce bits of fraction for byte rate to avoid overflow
+    typedef RateEWMAX<RateEWMAXParameters<4, 10, uint64_t, int64_t> > rate_t;
+#else
+    typedef RateEWMAX<RateEWMAXParameters<4, 10> > rate_t;
+#endif
+    rate_t _rate;
+
+    inline int rates() const;
 };
 
 
@@ -590,6 +601,7 @@ Task::fire()
 #if HAVE_MULTITHREAD
     _cycle_runs++;
     _total_runs++;
+    _rate.update(1);
 #endif
     bool work_done;
     if (!_hook)
@@ -640,6 +652,13 @@ inline int
 Task::cycles() const
 {
     return _cycles.unscaled_average();
+}
+
+inline int
+Task::rates() const
+{
+    _rate.update(0);
+    return _rate.rate();
 }
 
 inline unsigned
