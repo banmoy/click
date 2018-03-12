@@ -31,15 +31,15 @@
 #include <ctime>
 CLICK_DECLS
 
-const unsigned RatedSource::NO_LIMIT;
+const unsigned RatedUdpSource::NO_LIMIT;
 
-RatedSource::RatedSource()
+RatedUdpSource::RatedUdpSource()
   : _packet(0), _packet1(0), _task(this), _timer(&_task)
 {
 }
 
 int
-RatedSource::configure(Vector<String> &conf, ErrorHandler *errh)
+RatedUdpSource::configure(Vector<String> &conf, ErrorHandler *errh)
 {
     int pktnum = 1;
     int len = 60;
@@ -89,7 +89,7 @@ RatedSource::configure(Vector<String> &conf, ErrorHandler *errh)
 }
 
 int
-RatedSource::initialize(ErrorHandler *errh)
+RatedUdpSource::initialize(ErrorHandler *errh)
 {
     _count = 0;
     if (output_is_push(0))
@@ -107,7 +107,7 @@ RatedSource::initialize(ErrorHandler *errh)
 }
 
 void
-RatedSource::cleanup(CleanupStage)
+RatedUdpSource::cleanup(CleanupStage)
 {
     if (_packet)
 	_packet->kill();
@@ -118,7 +118,7 @@ RatedSource::cleanup(CleanupStage)
 }
 
 bool
-RatedSource::run_task(Task *)
+RatedUdpSource::run_task(Task *)
 {
     if (!_active)
 	return false;
@@ -143,7 +143,7 @@ RatedSource::run_task(Task *)
 }
 
 Packet *
-RatedSource::pull(int)
+RatedUdpSource::pull(int)
 {
     if (!_active)
 	return 0;
@@ -164,12 +164,12 @@ RatedSource::pull(int)
 }
 
 Packet*
-RatedSource::get_packet() {
+RatedUdpSource::get_packet() {
   return _pktnum == 1 || (rand()%10)<_guard ? _packet : _packet1;
 }
 
 void
-RatedSource::setup_packet()
+RatedUdpSource::setup_packet()
 {
     _ethh.ether_type = htons(0x0800);
     WritablePacket *q = Packet::make(_len);
@@ -205,7 +205,7 @@ RatedSource::setup_packet()
 }
 
 void
-RatedSource::setup_packet1()
+RatedUdpSource::setup_packet1()
 {
     _ethh1.ether_type = htons(0x0800);
     WritablePacket *q = Packet::make(_len);
@@ -241,106 +241,106 @@ RatedSource::setup_packet1()
 }
 
 
-String
-RatedSource::read_param(Element *e, void *vparam)
-{
-  RatedSource *rs = (RatedSource *)e;
-  switch ((intptr_t)vparam) {
-   case 0:			// data
-    return rs->_data;
-   case 1:			// rate
-    return String(rs->_tb.rate());
-   case 2:			// limit
-    return (rs->_limit != NO_LIMIT ? String(rs->_limit) : String("-1"));
-   default:
-    return "";
-  }
-}
+// String
+// RatedUdpSource::read_param(Element *e, void *vparam)
+// {
+//   RatedUdpSource *rs = (RatedUdpSource *)e;
+//   switch ((intptr_t)vparam) {
+//    case 0:			// data
+//     return rs->_data;
+//    case 1:			// rate
+//     return String(rs->_tb.rate());
+//    case 2:			// limit
+//     return (rs->_limit != NO_LIMIT ? String(rs->_limit) : String("-1"));
+//    default:
+//     return "";
+//   }
+// }
 
-int
-RatedSource::change_param(const String &s, Element *e, void *vparam,
-			  ErrorHandler *errh)
-{
-  RatedSource *rs = (RatedSource *)e;
-  switch ((intptr_t)vparam) {
+// int
+// RatedUdpSource::change_param(const String &s, Element *e, void *vparam,
+// 			  ErrorHandler *errh)
+// {
+//   RatedUdpSource *rs = (RatedUdpSource *)e;
+//   switch ((intptr_t)vparam) {
 
-  case 0:			// data
-      rs->_data = s;
-      if (rs->_packet)
-	  rs->_packet->kill();
-      rs->_packet = Packet::make(rs->_data.data(), rs->_data.length());
-      break;
+//   case 0:			// data
+//       rs->_data = s;
+//       if (rs->_packet)
+// 	  rs->_packet->kill();
+//       rs->_packet = Packet::make(rs->_data.data(), rs->_data.length());
+//       break;
 
-  case 1: {			// rate
-      unsigned rate;
-      if (!IntArg().parse(s, rate))
-	  return errh->error("syntax error");
-      rs->_tb.assign_adjust(rate, rate < 200 ? 2 : rate / 100);
-      break;
-  }
+//   case 1: {			// rate
+//       unsigned rate;
+//       if (!IntArg().parse(s, rate))
+// 	  return errh->error("syntax error");
+//       rs->_tb.assign_adjust(rate, rate < 200 ? 2 : rate / 100);
+//       break;
+//   }
 
-   case 2: {			// limit
-     int limit;
-     if (!IntArg().parse(s, limit))
-       return errh->error("syntax error");
-     rs->_limit = (limit >= 0 ? unsigned(limit) : NO_LIMIT);
-     break;
-   }
+//    case 2: {			// limit
+//      int limit;
+//      if (!IntArg().parse(s, limit))
+//        return errh->error("syntax error");
+//      rs->_limit = (limit >= 0 ? unsigned(limit) : NO_LIMIT);
+//      break;
+//    }
 
-  case 3: {			// active
-      bool active;
-      if (!BoolArg().parse(s, active))
-	  return errh->error("syntax error");
-      rs->_active = active;
-      if (rs->output_is_push(0) && !rs->_task.scheduled() && active) {
-	  rs->_tb.set(1);
-	  rs->_task.reschedule();
-      }
-      break;
-  }
+//   case 3: {			// active
+//       bool active;
+//       if (!BoolArg().parse(s, active))
+// 	  return errh->error("syntax error");
+//       rs->_active = active;
+//       if (rs->output_is_push(0) && !rs->_task.scheduled() && active) {
+// 	  rs->_tb.set(1);
+// 	  rs->_task.reschedule();
+//       }
+//       break;
+//   }
 
-  case 5: {			// reset
-      rs->_count = 0;
-      rs->_tb.set(1);
-      if (rs->output_is_push(0) && !rs->_task.scheduled() && rs->_active)
-	  rs->_task.reschedule();
-      break;
-  }
+//   case 5: {			// reset
+//       rs->_count = 0;
+//       rs->_tb.set(1);
+//       if (rs->output_is_push(0) && !rs->_task.scheduled() && rs->_active)
+// 	  rs->_task.reschedule();
+//       break;
+//   }
 
-  case 6: {			// datasize
-      int datasize;
-      if (!IntArg().parse(s, datasize))
-	  return errh->error("syntax error");
-      rs->_datasize = datasize;
-      rs->setup_packet();
-      break;
-  }
-  }
-  return 0;
-}
+//   case 6: {			// datasize
+//       int datasize;
+//       if (!IntArg().parse(s, datasize))
+// 	  return errh->error("syntax error");
+//       rs->_datasize = datasize;
+//       rs->setup_packet();
+//       break;
+//   }
+//   }
+//   return 0;
+// }
 
-void
-RatedSource::add_handlers()
-{
-  add_read_handler("data", read_param, 0, Handler::f_calm);
-  add_write_handler("data", change_param, 0, Handler::f_raw);
-  add_read_handler("rate", read_param, 1);
-  add_write_handler("rate", change_param, 1);
-  add_read_handler("limit", read_param, 2, Handler::f_calm);
-  add_write_handler("limit", change_param, 2);
-  add_data_handlers("active", Handler::f_read | Handler::f_checkbox, &_active);
-  add_write_handler("active", change_param, 3);
-  add_data_handlers("count", Handler::f_read, &_count);
-  add_write_handler("reset", change_param, 5, Handler::f_button);
-  add_data_handlers("length", Handler::f_read, &_datasize);
-  add_write_handler("length", change_param, 6);
-  // deprecated
-  add_data_handlers("datasize", Handler::f_read | Handler::f_deprecated, &_datasize);
-  add_write_handler("datasize", change_param, 6);
+// void
+// RatedUdpSource::add_handlers()
+// {
+//   add_read_handler("data", read_param, 0, Handler::f_calm);
+//   add_write_handler("data", change_param, 0, Handler::f_raw);
+//   add_read_handler("rate", read_param, 1);
+//   add_write_handler("rate", change_param, 1);
+//   add_read_handler("limit", read_param, 2, Handler::f_calm);
+//   add_write_handler("limit", change_param, 2);
+//   add_data_handlers("active", Handler::f_read | Handler::f_checkbox, &_active);
+//   add_write_handler("active", change_param, 3);
+//   add_data_handlers("count", Handler::f_read, &_count);
+//   add_write_handler("reset", change_param, 5, Handler::f_button);
+//   add_data_handlers("length", Handler::f_read, &_datasize);
+//   add_write_handler("length", change_param, 6);
+//   // deprecated
+//   add_data_handlers("datasize", Handler::f_read | Handler::f_deprecated, &_datasize);
+//   add_write_handler("datasize", change_param, 6);
 
-  if (output_is_push(0))
-    add_task_handlers(&_task);
-}
+//   if (output_is_push(0))
+//     add_task_handlers(&_task);
+// }
 
 CLICK_ENDDECLS
-EXPORT_ELEMENT(RatedSource)
+EXPORT_ELEMENT(RatedUdpSource)
