@@ -57,12 +57,6 @@ RatedUdpSource::configure(Vector<String> &conf, ErrorHandler *errh)
            .read_mp("DSTETH", EtherAddressArg(), _ethh.ether_dhost)
            .read_mp("DSTIP", _dipaddr)
            .read_mp("DPORT", IPPortArg(IP_PROTO_UDP), _dport)
-           .read("RATE", rate)
-	         .read("LIMIT", limit)
-	         .read("ACTIVE", active)
-	         .read("STOP", stop)
-           .read("GUARD", guard);
-
     
     if(pktnum > 1) {
         eleargs.read_mp("SRCETH1", EtherAddressArg(), _ethh1.ether_shost)
@@ -72,6 +66,12 @@ RatedUdpSource::configure(Vector<String> &conf, ErrorHandler *errh)
            .read_mp("DSTIP1", _dipaddr1)
            .read_mp("DPORT1", IPPortArg(IP_PROTO_UDP), _dport1);
     }
+
+    eleargs.read("RATE", rate)
+           .read("LIMIT", limit)
+           .read("ACTIVE", active)
+           .read("STOP", stop)
+           .read("GUARD", guard);
 
     if(eleargs.complete() < 0)
 	     return -1;
