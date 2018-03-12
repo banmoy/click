@@ -24,12 +24,14 @@
 #include <click/straccum.hh>
 #include <click/standard/scheduleinfo.hh>
 #include <click/glue.hh>
+#include <cstdlib>
+#include <ctime>
 CLICK_DECLS
 
 const unsigned RatedSource::NO_LIMIT;
 
 RatedSource::RatedSource()
-  : _packet(0), _task(this), _timer(&_task)
+  : _packet(0), _packet1(0), _task(this), _timer(&_task), _guard(10)
 {
 }
 
@@ -38,11 +40,15 @@ RatedSource::configure(Vector<String> &conf, ErrorHandler *errh)
 {
     String data =
 	"Random bullshit in a packet, at least 64 bytes long. Well, now it is.";
+    String data1 =
+  "Random bullshit in a packet, at least 64 bytes long. Well, now it is.";
+  
     unsigned rate = 10;
     unsigned bandwidth = 0;
     int limit = -1;
     int datasize = -1;
     bool active = true, stop = false;
+    int guard = 10;
 
     if (Args(conf, this, errh)
 	.read_p("DATA", data)
@@ -53,10 +59,13 @@ RatedSource::configure(Vector<String> &conf, ErrorHandler *errh)
 	.read("DATASIZE", datasize) // deprecated
 	.read("STOP", stop)
 	.read("BANDWIDTH", BandwidthArg(), bandwidth)
+  .read("DATA1", data1)
+  .read("GUARD", guard)
 	.complete() < 0)
 	return -1;
 
     _data = data;
+    _data1 = data1;
     _datasize = datasize;
     if (bandwidth > 0)
 	rate = bandwidth / (_datasize < 0 ? _data.length() : _datasize);
@@ -67,6 +76,7 @@ RatedSource::configure(Vector<String> &conf, ErrorHandler *errh)
     _limit = (limit >= 0 ? unsigned(limit) : NO_LIMIT);
     _active = active;
     _stop = stop;
+    _guard = guard;
 
     setup_packet();
 
@@ -81,6 +91,9 @@ RatedSource::initialize(ErrorHandler *errh)
 	ScheduleInfo::initialize_task(this, &_task, errh);
     _tb.set(1);
     _timer.initialize(this);
+
+    srand (time(NULL));
+
     return 0;
 }
 
@@ -89,7 +102,10 @@ RatedSource::cleanup(CleanupStage)
 {
     if (_packet)
 	_packet->kill();
+    if(_packet1)
+      _packet1->kill();
     _packet = 0;
+    _packet1 = 0;
 }
 
 bool
@@ -105,7 +121,7 @@ RatedSource::run_task(Task *)
 
     _tb.refill();
     if (_tb.remove_if(1)) {
-	Packet *p = _packet->clone();
+	Packet *p = get_packet()->clone();
 	p->set_timestamp_anno(Timestamp::now());
 	output(0).push(p);
 	_count++;
@@ -131,11 +147,16 @@ RatedSource::pull(int)
     _tb.refill();
     if (_tb.remove_if(1)) {
 	_count++;
-	Packet *p = _packet->clone();
+	Packet *p = get_packet()->clone();
 	p->set_timestamp_anno(Timestamp::now());
 	return p;
     } else
 	return 0;
+}
+
+Packet*
+RatedSource::get_packet() {
+  return (rand()%10) < _guard ? _packet : _packet1;
 }
 
 void
@@ -144,19 +165,28 @@ RatedSource::setup_packet()
     if (_packet)
 	_packet->kill();
 
+    if(_packet1)
+  _packet1->kill();
+
     // note: if you change `headroom', change `click-align'
     unsigned int headroom = 16+20+24;
 
-    if (_datasize < 0)
+    if (_datasize < 0) {
 	_packet = Packet::make(headroom, (unsigned char *) _data.data(), _data.length(), 0);
-    else if (_datasize <= _data.length())
+  _packet1 = Packet::make(headroom, (unsigned char *) _data1.data(), _data1.length(), 0);
+    } else if (_datasize <= _data.length()) {
 	_packet = Packet::make(headroom, (unsigned char *) _data.data(), _datasize, 0);
-    else {
+  _packet1 = Packet::make(headroom, (unsigned char *) _data1.data(), _datasize, 0);
+  }  else {
 	// make up some data to fill extra space
-	StringAccum sa;
+	StringAccum sa, sa1;
 	while (sa.length() < _datasize)
 	    sa << _data;
 	_packet = Packet::make(headroom, (unsigned char *) sa.data(), _datasize, 0);
+
+  while (sa1.length() < _datasize)
+      sa1 << _data1;
+  _packet1 = Packet::make(headroom, (unsigned char *) sa1.data(), _datasize, 0);
     }
 }
 

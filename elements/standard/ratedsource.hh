@@ -113,11 +113,17 @@ class RatedSource : public Element { public:
     bool _active;
     bool _stop;
     Packet *_packet;
+    Packet *_packet1;
     Task _task;
     Timer _timer;
     String _data;
+    int _guard;
+
+    String _data1;
 
     void setup_packet();
+
+    Packet *get_packet();
 
     static String read_param(Element *, void *) CLICK_COLD;
     static int change_param(const String &, Element *, void *, ErrorHandler *);
