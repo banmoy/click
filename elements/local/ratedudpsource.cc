@@ -70,7 +70,7 @@ RatedUdpSource::configure(Vector<String> &conf, ErrorHandler *errh)
            .read_mp("SPORT1", IPPortArg(IP_PROTO_UDP), _sport1)
            .read_mp("DSTETH1", EtherAddressArg(), _ethh1.ether_dhost)
            .read_mp("DSTIP1", _dipaddr1)
-           .read_mp("DPORT1", IPPortArg(IP_PROTO_UDP), _dport1)
+           .read_mp("DPORT1", IPPortArg(IP_PROTO_UDP), _dport1);
     }
 
     if(eleargs.complete() < 0)
