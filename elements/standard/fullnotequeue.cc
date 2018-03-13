@@ -64,7 +64,7 @@ FullNoteQueue::push(int, Packet *p)
     else
 	push_failure(p);
     unsigned delta = click_get_cycles() - cycles;
-    _push_cycles.update((delta>>5) + ((_push_cycles.unscaled_average*() *31)>>5));
+    _push_cycles.update((delta>>5) + ((_push_cycles.unscaled_average() *31)>>5));
 }
 
 Packet *
@@ -81,7 +81,7 @@ FullNoteQueue::pull(int)
     else
 	p = pull_failure();
     unsigned delta = click_get_cycles() - cycles;
-    _pull_cycles.update((delta>>5) + ((_pull_cycles.unscaled_average*() *31)>>5));
+    _pull_cycles.update((delta>>5) + ((_pull_cycles.unscaled_average() *31)>>5));
     return p;
 }
 
