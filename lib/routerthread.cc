@@ -824,7 +824,7 @@ RouterThread::add_nf(String config_file) {
     master()->lock_write();
     master()->_router_map.insert(router_name, router);
     master()->unlock_rw();
-    printf("router %s activated\n", router->router_info()->router_name().mutable_data());
+    printf("router %s activated\n", router->router_info()->router_name().mutable_c_str());
     printf("number of tasks: %d\n", router->_tasks.size());
     return 0;
 }
