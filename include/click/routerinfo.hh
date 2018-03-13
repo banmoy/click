@@ -9,6 +9,8 @@ public:
     ~RouterInfo() {}
 
     virtual String router_name() = 0;
+
+    virtual void update_topology() {}
 };
 
 #endif

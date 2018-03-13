@@ -89,6 +89,17 @@ class FullNoteQueue : public NotifierQueue { public:
 
     DirectEWMA _pull_cycles;
 
+#ifdef HAVE_INT64_TYPES
+    // Reduce bits of fraction for byte rate to avoid overflow
+    typedef RateEWMAX<RateEWMAXParameters<4, 10, uint64_t, int64_t> > rate_t;
+#else
+    typedef RateEWMAX<RateEWMAXParameters<4, 10> > rate_t;
+#endif
+
+    rate_t _push_rate;
+
+    rate_t _pull_rate;
+
     inline void push_success(Storage::index_type h, Storage::index_type t,
 			     Storage::index_type nt, Packet *p);
     inline void push_failure(Packet *p);
@@ -103,6 +114,8 @@ class FullNoteQueue : public NotifierQueue { public:
   public:
     inline int push_cycles();
     inline int pull_cycles();
+    inline int push_rate();
+    inline int pull_rate();
 };
 
 inline int
@@ -113,6 +126,18 @@ FullNoteQueue::push_cycles() {
 inline int
 FullNoteQueue::pull_cycles() {
     return _pull_cycles.unscaled_average();
+}
+
+inline int
+FullNoteQueue::push_rate() {
+    _push_rate.update(0);
+    return _push_rate.rate();
+}
+
+inline int
+FullNoteQueue::pull_rate() {
+    _pull_rate.update(0);
+    return _pull_rate.rate();
 }
 
 inline void

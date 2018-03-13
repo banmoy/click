@@ -56,6 +56,7 @@ void
 FullNoteQueue::push(int, Packet *p)
 {
     click_cycles_t cycles = click_get_cycles();
+    _push_rate.update(1);
     // Code taken from SimpleQueue::push().
     Storage::index_type h = head(), t = tail(), nt = next_i(t);
 
@@ -76,9 +77,10 @@ FullNoteQueue::pull(int)
 
     Packet* p;
 
-    if (h != t)
+    if (h != t) {
 	p = pull_success(h, nh);
-    else
+    _pull_rate.update(1);
+    } else
 	p = pull_failure();
     unsigned delta = click_get_cycles() - cycles;
     _pull_cycles.update((delta>>5) + ((_pull_cycles.unscaled_average() *31)>>5));

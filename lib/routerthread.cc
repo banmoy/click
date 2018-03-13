@@ -43,6 +43,7 @@ CLICK_CXX_UNPROTECT
 # include <click/cxxunprotect.h>
 #elif CLICK_USERLEVEL
 # include <click/msgqueue.hh>
+# include <click/routerinfo.hh>
 # include <fcntl.h>
 # include <iostream>
 # include <cmath>
@@ -1010,9 +1011,21 @@ RouterThread::balance_nf(String nullstr) {
                   << std::endl;
     }
 
+    std::cout << "||||||||||||||||||||||||||topology information|||||||||||||||||" << std::endl;
+    // for(HashMap<String, Router*>::const_iterator it = master()->_router_map->begin();
+    //     it.live(); it++) {
+    //     std::cout << "router: " << it.key().c_str() << std::endl;
+        Router *r = master()->get_router("router1");
+	RouterInfo *ri = r->router_info();
+    	ri->update_topology();
+    // }
+
+
     // for(int i=0; i<sortedTasks.size(); i++) {
     //     sortedTasks[i]->move_thread(allocThread[i]);
     // }
+
+   return 0;
 }
 
 int
