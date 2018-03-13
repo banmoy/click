@@ -85,6 +85,10 @@ class FullNoteQueue : public NotifierQueue { public:
 
     ActiveNotifier _full_note;
 
+    DirectEWMA _push_cycles;
+
+    DirectEWMA _pull_cycles;
+
     inline void push_success(Storage::index_type h, Storage::index_type t,
 			     Storage::index_type nt, Packet *p);
     inline void push_failure(Packet *p);
@@ -96,7 +100,20 @@ class FullNoteQueue : public NotifierQueue { public:
     static String read_handler(Element *e, void *user_data) CLICK_COLD;
 #endif
 
+  public:
+    inline int push_cycles();
+    inline int pull_cycles();
 };
+
+inline int
+FullNoteQueue::push_cycles() {
+    return _push_cycles.unscaled_average();
+}
+
+inline int
+FullNoteQueue::pull_cycles() {
+    return _pull_cycles.unscaled_average();
+}
 
 inline void
 FullNoteQueue::push_success(Storage::index_type h, Storage::index_type t,

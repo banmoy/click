@@ -55,6 +55,7 @@ FullNoteQueue::live_reconfigure(Vector<String> &conf, ErrorHandler *errh)
 void
 FullNoteQueue::push(int, Packet *p)
 {
+    click_cycles_t cycles = click_get_cycles();
     // Code taken from SimpleQueue::push().
     Storage::index_type h = head(), t = tail(), nt = next_i(t);
 
@@ -62,18 +63,26 @@ FullNoteQueue::push(int, Packet *p)
 	push_success(h, t, nt, p);
     else
 	push_failure(p);
+    unsigned delta = click_get_cycles() - cycles;
+    _push_cycles.update((delta>>5) + ((_push_cycles.unscaled_average*() *31)>>5));
 }
 
 Packet *
 FullNoteQueue::pull(int)
 {
+    click_cycles_t cycles = click_get_cycles();
     // Code taken from SimpleQueue::deq.
     Storage::index_type h = head(), t = tail(), nh = next_i(h);
 
+    Packet* p;
+
     if (h != t)
-	return pull_success(h, nh);
+	p = pull_success(h, nh);
     else
-	return pull_failure();
+	p = pull_failure();
+    unsigned delta = click_get_cycles() - cycles;
+    _pull_cycles.update((delta>>5) + ((_pull_cycles.unscaled_average*() *31)>>5));
+    return p;
 }
 
 #if CLICK_DEBUG_SCHEDULING
