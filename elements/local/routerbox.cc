@@ -25,7 +25,8 @@ RouterBox::configure(Vector<String> &conf, ErrorHandler *errh)
         return -1;
     router()->set_router_info(this);
     _topo = topo;
-    setup_topology();
+	if(_topo.length())
+		setup_topology();
     return 0;
 }
 
@@ -100,8 +101,22 @@ RouterBox::setup_topology() {
     //     }
     //     std::cout << std::endl;
     // }
-     
-     // build adj table
+
+	// task-id mapping
+	std::cout << "==========================task-id mapping=====================" << std::endl;
+	for(HashMap<String, int>::const_iterator it = _task_id.begin();
+					it.live(); it++) {
+			std::cout << "(" << it.key().c_str() << ", " << it.value() << ")";
+	}
+	std::cout << std::endl;
+
+	for(HashMap<int, String>::const_iterator it = _id_task.begin();
+					it.live(); it++) {
+			std::cout << "(" << it.value().c_str() << ", " << it.key() << ")";
+	}
+	std::cout << std::endl;
+    
+   	// build adj table
     _adj_table.resize(_id);
     for(HashMap<String, Vector<String>>::const_iterator it = _task_output.begin();
             it.live(); it++) {
@@ -109,18 +124,28 @@ RouterBox::setup_topology() {
         int srcid = _task_id.find(src);
         const Vector<String>& output = it.value();
         for(int i=0; i<output.size(); ++i) {
-            const String &dst = output[i];
+            const String &dst = _input_to_task[output[i]];
             int dstid = _task_id.find(dst);
             _adj_table[srcid].push_back(dstid);
         }
     }
 
+	// adj table
+	std::cout << "=================== adj table =====================" << std::endl;
+	for(int i=0; i<_adj_table.size(); i++) {
+		std::cout << i << ": ";
+		for(int j=0; j<_adj_table[i].size(); j++) {
+				std::cout << _adj_table[i][j] << " ";
+		}
+		std::cout << std::endl;
+	}
+
     _weight.resize(_id, Vector<double>(_id, 0.0));
 
     // topology sort
     topology_sort();
-    std::cout << "=====================topology-sorted tasks==========================="
-    for(int i=0; i<_id; ++i) {
+    std::cout << "=====================topology-sorted tasks===========================" << std::endl;
+    for(int i=0; i<_toposort_task.size(); ++i) {
         std::cout << _id_task[_toposort_task[i]].c_str() << " ";
     }
     std::cout << std::endl;
@@ -203,7 +228,7 @@ RouterBox::update_topology() {
         const String &src = it.key();
         int srcid = _task_id.find(src);
         const Vector<String>& output = it.value();
-        const Vector<String>& rate = _task_output_rate[src];
+        const Vector<int>& rate = _task_output_rate[src];
         double total = 0.0;
         for(int i=0; i<rate.size(); i++) {
             total += rate[i];
@@ -216,7 +241,7 @@ RouterBox::update_topology() {
     }
     _weight = weight;
 
-    std::cout << "=========================output weight information========================="
+    std::cout << "=========================output weight information=========================" << std::endl;
     for(int i=0; i<_id; ++i) {
         std::cout << _id_task[i].c_str() << ": ";
         for(int j=0; j<_id; ++j) {

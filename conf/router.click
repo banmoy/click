@@ -29,38 +29,10 @@ c1 :: Classifier(12/0806 20/0001,
                   12/0800,
                   -);
 
-
-// src :: FastUDPSource(6000000, -1, 60, 0:0:0:0:0:0, 1.0.0.1, 1234, 1:1:1:1:1:1, 2.0.0.2, 1234)
-// src :: RatedSource(DATA \<
-//   // Ethernet header
-//   00 00 c0 ae 67 ef  00 00 00 00 00 00  08 00
-//   // IP header
-//   45 00 00 28  00 00 00 00  40 11 77 c3  01 00 00 01  02 00 00 02
-//   // UDP header
-//   13 69 13 69  00 14 d6 41
-//   // UDP payload
-//   55 44 50 20  70 61 63 6b  65 74 21 0a  04 00 00 00  01 00 00 00  
-//   01 00 00 00  00 00 00 00  00 80 04 08  00 80 04 08  53 53 00 00
-//   53 53 00 00  05 00 00 00  00 10 00 00  01 00 00 00  54 53 00 00
-//   54 e3 04 08  54 e3 04 08  d8 01 00 00
-// >, RATE 200000, LIMIT -1, STOP false, DATA1 \<
-//   // Ethernet header
-//   00 00 c0 ae 67 ef  00 00 00 00 00 00  08 00
-//   // IP header
-//   45 00 00 28  00 00 00 00  40 11 77 c3  01 00 00 01  12 1a 07 02
-//   // UDP header
-//   13 69 13 69  00 14 d6 41
-//   // UDP payload
-//   55 44 50 20  70 61 63 6b  65 74 21 0a  04 00 00 00  01 00 00 00  
-//   01 00 00 00  00 00 00 00  00 80 04 08  00 80 04 08  53 53 00 00
-//   53 53 00 00  05 00 00 00  00 10 00 00  01 00 00 00  54 53 00 00
-//   54 e3 04 08  54 e3 04 08  d8 01 00 00
-// >, GUARD 5)
-
-src :: RatedUdpSource(0:0:0:0:0:0, 18.26.7.29, 1234, 1:1:1:1:1:1, 18.26.7.10, 1234, 0:0:0:0:0:0, 18.26.4.30, 1234, 1:1:1:1:1:1, 18.26.4.10, 1234, RATE 200000, GUARD 5)
+src :: RatedUdpSource(0:0:0:0:0:0, 18.26.7.29, 1234, 1:1:1:1:1:1, 18.26.7.10, 1234, 0:0:0:0:0:0, 18.26.4.30, 1234, 1:1:1:1:1:1, 18.26.4.10, 1234, RATE 1000000, GUARD 5)
 
 src -> counter_src :: Counter
-    -> Queue
+    -> srcq :: Queue
     -> route :: Unqueue
     -> counter_route :: Counter
     -> [0]c1;
@@ -108,7 +80,7 @@ rt :: StaticIPLookup(18.26.4.24/32 0,
 ip ::   Strip(14)
      -> CheckIPHeader(INTERFACES 18.26.4.1/24 18.26.7.1/24)
      -> [0]rt;
-c1[2] -> Paint(2) -> ip;
+c1[2]-> ip;
 
 // IP packets for this machine.
 // ToHost expects ethernet packets, so cook up a fake header.
@@ -123,21 +95,19 @@ rt[0] -> EtherEncap(0x0800, 1:1:1:1:1:1, 2:2:2:2:2:2) -> tol;
 // Decrement and check the TTL after deciding to forward.
 // Fragment.
 // Send outgoing packets through ARP to the interfaces.
-rt[1] -> Queue
+rt[1] -> fwdq0 :: Queue
       -> fwd0 :: Unqueue
       -> counter_fwd0 :: Counter
       -> DropBroadcasts
-      -> cp1 :: PaintTee(1)
       -> gio1 :: IPGWOptions(18.26.4.24)
       -> FixIPSrc(18.26.4.24)
       -> dt1 :: DecIPTTL
       -> fr1 :: IPFragmenter(300)
       -> [0]fake_arpq0;
-rt[2] -> Queue
+rt[2] -> fwdq1 :: Queue
       -> fwd1 :: Unqueue
       -> counter_fwd1 :: Counter
       -> DropBroadcasts
-      -> cp2 :: PaintTee(2)
       -> gio2 :: IPGWOptions(18.26.7.1)
       -> FixIPSrc(18.26.7.1)
       -> dt2 :: DecIPTTL
@@ -146,13 +116,13 @@ rt[2] -> Queue
 
 // DecIPTTL[1] emits packets with expired TTLs.
 // Reply with ICMPs. Rate-limit them?
-dt1[1] -> ICMPError(18.26.4.24, timeexceeded) -> [0]rt;
-dt2[1] -> ICMPError(18.26.4.24, timeexceeded) -> [0]rt;
+dt1[1] -> ICMPError(18.26.4.24, timeexceeded) -> Discard// [0]rt;
+dt2[1] -> ICMPError(18.26.4.24, timeexceeded) -> Discard// [0]rt;
 
 // Send back ICMP UNREACH/NEEDFRAG messages on big packets with DF set.
 // This makes path mtu discovery work.
-fr1[1] -> ICMPError(18.26.7.1, unreachable, needfrag) -> [0]rt;
-fr2[1] -> ICMPError(18.26.7.1, unreachable, needfrag) -> [0]rt;
+fr1[1] -> ICMPError(18.26.7.1, unreachable, needfrag) -> Discard// [0]rt;
+fr2[1] -> ICMPError(18.26.7.1, unreachable, needfrag) -> Discard// [0]rt;
 
 // Send back ICMP Parameter Problem messages for badly formed
 // IP options. Should set the code to point to the
@@ -160,12 +130,8 @@ fr2[1] -> ICMPError(18.26.7.1, unreachable, needfrag) -> [0]rt;
 gio1[1] -> ICMPError(18.26.4.24, parameterproblem) -> [0]rt;
 gio2[1] -> ICMPError(18.26.4.24, parameterproblem) -> [0]rt;
 
-// Send back an ICMP redirect if required.
-cp1[1] -> ICMPError(18.26.4.24, redirect, host) -> [0]rt;
-cp2[1] -> ICMPError(18.26.7.1, redirect, host) -> [0]rt;
-
 // Unknown ethernet type numbers.
 c1[3] -> Print(c3) -> Discard;
 
 StaticThreadSched(src 1, route 2, fwd0 3, fwd1 4, dis0 3, dis1 4)
-rb::RouterBox(NAME router1)
+rb::RouterBox(NAME router1, TOPOLOGY "src,,srcq,route,srcq,fwdq0 fwdq1,fwd0,fwdq0,out0,fwd1,fwdq1,out1,dis0,out0,,dis1,out1,")
