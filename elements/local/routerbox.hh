@@ -19,11 +19,27 @@ public:
 
     void update_topology();
 
+    void update_traffic(double srctraf);
+
     void add_handlers() CLICK_COLD;
 
 private:
     String _router_name;
     String _topo;
+    String _src_task;
+    int _id;
+
+    HashMap<String, int> _task_id;
+
+    HashMap<int, String> _id_task;
+
+    Vector<Vector<int>> _adj_table;
+
+    Vector<int> _toposort_task;
+
+    Vector<Vector<double>> _weight;
+
+    Vector<double> _traffic;
 
     HashMap<String, Vector<String>> _task_input;
 
@@ -37,7 +53,11 @@ private:
 
     HashMap<String, Vector<int>> _task_output_cycle;
 
+    HashMap<String, String> _input_to_task;
+
     void setup_topology();
+
+    void topology_sort();
 
     static String read_handler(Element*, void*) CLICK_COLD;
 };

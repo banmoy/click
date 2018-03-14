@@ -11,6 +11,8 @@ public:
     virtual String router_name() = 0;
 
     virtual void update_topology() {}
+
+    virtual void update_traffic(double srctraf) {}
 };
 
 #endif

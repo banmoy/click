@@ -4,9 +4,11 @@
 #include <click/router.hh>
 #include "elements/standard/fullnotequeue.hh"
 #include <iostream>
+#include <queue>
 CLICK_DECLS
 
 RouterBox::RouterBox()
+    : _task_id(0)
 {}
 
 RouterBox::~RouterBox()
@@ -35,6 +37,9 @@ RouterBox::setup_topology() {
         while(_topo[j] != ',')
             ++j;
         String task = _topo.substring(i, j-i).unshared();
+        _task_id.insert(task, _id);
+        _id_task.insert(_id, task);
+        ++_id;
         _task_input.insert(task, Vector<String>());
         _task_input_rate.insert(task, Vector<int>());
         _task_input_cycle.insert(task, Vector<int>());
@@ -44,6 +49,9 @@ RouterBox::setup_topology() {
         i = ++j;
         while(_topo[j]!=',')
             ++j;
+        if(i == j) {
+            _src_task = task;
+        }
         int k = i;
         while(k<j) {
             while(k<j && _topo[k]!=' ') 
@@ -52,6 +60,7 @@ RouterBox::setup_topology() {
             _task_input.findp(task)->push_back(tmp);
             _task_input_rate.findp(task)->push_back(0);
             _task_input_cycle.findp(task)->push_back(0);
+            _input_to_task.insert(tmp, task);
             i = ++k;
         }
         i = ++j;
@@ -91,6 +100,55 @@ RouterBox::setup_topology() {
     //     }
     //     std::cout << std::endl;
     // }
+     
+     // build adj table
+    _adj_table.resize(_id);
+    for(HashMap<String, Vector<String>>::const_iterator it = _task_output.begin();
+            it.live(); it++) {
+        const String &src = it.key();
+        int srcid = _task_id.find(src);
+        const Vector<String>& output = it.value();
+        for(int i=0; i<output.size(); ++i) {
+            const String &dst = output[i];
+            int dstid = _task_id.find(dst);
+            _adj_table[srcid].push_back(dstid);
+        }
+    }
+
+    _weight.resize(_id, Vector<double>(_id, 0.0));
+
+    // topology sort
+    topology_sort();
+    std::cout << "=====================topology-sorted tasks==========================="
+    for(int i=0; i<_id; ++i) {
+        std::cout << _id_task[_toposort_task[i]].c_str() << " ";
+    }
+    std::cout << std::endl;
+}
+
+void
+RouterBox::topology_sort() {
+    Vector<int> degree(_id, 0);
+    for(int i=0; i<_adj_table.size(); ++i) {
+        for(int j=0; j<_adj_table[i].size(); ++j) {
+            degree[_adj_table[i][j]]++;
+        }
+    }
+
+    int srcid = _task_id[_src_task];
+    std::queue<int> tq;
+    tq.push(srcid);
+    while(!tq.empty()) {
+        int i = tq.front();
+        tq.pop();
+        _toposort_task.push_back(i);
+        for(int j=0; j<_adj_table[i].size(); ++j) {
+            int k = _adj_table[i][j];
+            if(--degree[k] == 0) {
+                tq.push(k);
+            }
+        }
+    }
 }
 
 String
@@ -136,6 +194,46 @@ RouterBox::update_topology() {
             std::cout << qname.c_str() << ", " << (*cycle)[i] << ", " << (*rate)[i] << " | ";
         }
 	std::cout << std::endl;
+    }
+
+    // calculate weight
+    Vector<Vector<double>> weight(_id, Vector<double>(_id, 0));
+    for(HashMap<String, Vector<String>>::const_iterator it = _task_output.begin();
+            it.live(); it++) {
+        const String &src = it.key();
+        int srcid = _task_id.find(src);
+        const Vector<String>& output = it.value();
+        const Vector<String>& rate = _task_output_rate[src];
+        double total = 0.0;
+        for(int i=0; i<rate.size(); i++) {
+            total += rate[i];
+        }
+        for(int i=0; i<output.size(); ++i) {
+            const String &dst = _input_to_task.find(output[i]);
+            int dstid = _task_id.find(dst);
+            weight[srcid][dstid] = rate[i] / total;
+        }
+    }
+    _weight = weight;
+
+    std::cout << "=========================output weight information========================="
+    for(int i=0; i<_id; ++i) {
+        std::cout << _id_task[i].c_str() << ": ";
+        for(int j=0; j<_id; ++j) {
+            std::cout << "(" << _id_task[j].c_str() << ", " << _weight[i][j] << ")";
+        }
+        std::cout << std::endl;
+    }
+}
+
+void
+RouterBox::update_traffic(double srctraf) {
+    Vector<double> traffic(_id, 0);
+    traffic[0] = srctraf;
+    for(int i=0; i<_id; i++) {
+        for(int j=0; j<_id; j++) {
+            traffic[j] += traffic[i] * _weight[i][j];
+        }
     }
 }
 
