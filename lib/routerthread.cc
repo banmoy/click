@@ -46,6 +46,8 @@ CLICK_CXX_UNPROTECT
 # include <click/routerinfo.hh>
 # include <fcntl.h>
 # include <iostream>
+# include <string>
+# include <sstream>
 # include <cmath>
 #endif
 CLICK_DECLS
@@ -592,8 +594,10 @@ RouterThread::cmd_driver() {
             ret = delete_nf(msg.arg);
         } else if(msg.cmd == "movenf") {
             ret = move_nf(msg.arg);
-        } else if(msg.cmd == "balancenf") {
-            ret = balance_nf(msg.arg);
+        } else if(msg.cmd == "balance") {
+            ret = balance(msg.arg);
+        } else if(msg.cmd == "newbalance") {
+            ret = newbalance(msg.arg);
         } else if(msg.cmd == "addthread") {
             ret = add_thread(msg.arg);
         }
@@ -934,7 +938,7 @@ static int task_decreasing_sorter(const void *va, const void *vb, void *) {
 }
 
 int
-RouterThread::balance_nf(String nullstr) {
+RouterThread::balance(String nullstr) {
     // index for thread starts from 1
     int cpuNum = master()->run_nthreads();
     Vector<Task*> tasks;
@@ -1011,19 +1015,121 @@ RouterThread::balance_nf(String nullstr) {
                   << std::endl;
     }
 
-    std::cout << "||||||||||||||||||||||||||topology information|||||||||||||||||" << std::endl;
-    // for(HashMap<String, Router*>::const_iterator it = master()->_router_map->begin();
-    //     it.live(); it++) {
-    //     std::cout << "router: " << it.key().c_str() << std::endl;
-        Router *r = master()->get_router("router1");
-	RouterInfo *ri = r->router_info();
-    	ri->update_topology();
-    // }
-
-
     // for(int i=0; i<sortedTasks.size(); i++) {
     //     sortedTasks[i]->move_thread(allocThread[i]);
     // }
+
+   return 0;
+}
+
+int
+RouterThread::newbalance(String nullstr) {
+    // index for thread starts from 1
+    int cpuNum = master()->run_nthreads();
+    Vector<Task*> tasks;
+    Vector<int> cycles;
+    Vector<double> rates;
+    Vector<double> oldTaskLoads;
+    Vector<double> oldCpuLoads(cpuNum+1, 0);
+    double totalCpuLoad=0, avgCpuLoad=0;
+
+    HashMap<Router*, double> srcRate;
+    double totalSrcRate = 0.0;
+    std::cout << "======================== newbalance ========================" << std::endl;
+    std::cout << "111111111111111 update information 111111111111111" << std::endl;
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        std::cout << "Router: " << it.key().c_str() << std::endl;
+        Router* r = it.value();
+        RouterInfo *ri = r->router_info();
+        ri->update_info();
+        double rate = ri->src_rate();
+        totalSrcRate += rate;
+        srcRate.insert(r, rate);
+    }
+
+    std::cout << "2222222222222222 cycle and rate 222222222222222" << std::endl;
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        std::cout << "Router: " << it.key().c_str() << std::endl;
+        Router* r = it.value();
+        RouterInfo *ri = r->router_info();
+        Vector<Task*>& t = ri->task();
+        Vector<int>& c = ri->task_cycle();
+        Vector<double>& rate = ri->task_rate(srcRate[r]/totalSrcRate);
+        for(int i=0; i<t.size(); i++) {
+            tasks.push_back(t[i]);
+            cycles.push_back(c[i]);
+            rates.push_back(rate[i]);
+            std::cout << "(" << t[i]->element()->name().c_str() << ", " << cycles[i] << ", " << rates[i] << ")";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "3333333333333333 current cpu load 3333333333333333" << std::endl;
+    for(int i=0; i<tasks.size(); i++) {
+        oldTaskLoads.push_back(cycles[i] * rates[i]);
+        int tid = tasks[i]->home_thread_id();
+        oldCpuLoads[tid] += oldTaskLoads[i];
+        tasks[i]->_task_load = oldTaskLoads[i];
+        totalCpuLoad += oldTaskLoads[i];
+    }
+    avgCpuLoad = totalCpuLoad / cpuNum;
+
+    double oldCpuBalance = 0;
+    for(int i=1; i<=cpuNum; i++) {
+        oldCpuBalance += (oldCpuLoads[i] - avgCpuLoad) * (oldCpuLoads[i] - avgCpuLoad);
+    }
+    oldCpuBalance = std::sqrt(oldCpuBalance/cpuNum);
+
+    std::cout << "CPU load: ";
+    for(int i=1; i<=cpuNum; i++) {
+        std::cout << "(" << i << ", " << oldCpuLoads[i] << ") "; 
+    }
+    std::cout << "\nCPU load balance: " << oldCpuBalance << std::endl;
+
+    std::cout << "4444444444444444 balance cpu load 4444444444444444" << std::endl;
+    Vector<Task*> sortedTasks = tasks;
+    Task **tbegin = sortedTasks.begin();
+    click_qsort(tbegin, sortedTasks.size(), sizeof(Task *), task_decreasing_sorter);
+
+    Vector<int> allocThread;
+    Vector<double> newCpuLoads(cpuNum+1, 0);
+    for(int i=0; i<sortedTasks.size(); i++) {
+        int id = 1;
+        for(int j=1; j<=cpuNum; j++) {
+            if(newCpuLoads[j] < newCpuLoads[id]) {
+                id = j;
+            }
+        }
+        newCpuLoads[id] += sortedTasks[i]->_task_load;
+        allocThread.push_back(id);
+    }
+
+    double newCpuBalance = 0;
+    for(int i=1; i<=cpuNum; i++) {
+        newCpuBalance += (newCpuLoads[i] - avgCpuLoad) * (newCpuLoads[i] - avgCpuLoad);
+    }
+    newCpuBalance = std::sqrt(newCpuBalance/cpuNum);
+    
+    std::cout << "CPU load: ";
+    for(int i=1; i<=cpuNum; i++) {
+        std::cout << "(" << i << ", " << newCpuLoads[i] << ") "; 
+    }
+    std::cout << "\nCPU load balance: " << newCpuBalance << std::endl;
+
+    HashMap<Router*, String> policy;
+    for(int i=0; i<sortedTasks.size(); i++) {
+        Element *ele = sortedTasks[i]->element();
+        Router *r = ele->router();
+        std::stringstream ss;
+        ss << ele->name().c_str() << + " from " + sortedTasks[i]->home_thread_id()
+                        + " to " + << allocThread[i] + "\n";
+        policy[r] += ss.str().c_str();
+    }
+    for(HashMap<Router*, String>::const_iterator it=policy.begin(); it.live(); it++) {
+        Router* r = it.key();
+        std::cout << "Router: " << r->router_info()->router_name().c_str() << std::endl;
+        std::cout << it.value().c_str() << std::endl;
+    }
 
    return 0;
 }

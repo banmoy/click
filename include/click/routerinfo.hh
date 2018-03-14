@@ -1,7 +1,9 @@
 #ifndef CLICK_ROUTERINFO_H
 #define CLICK_ROUTERINFO_H
 
+#include <click/task.hh>
 #include <click/string.hh>
+#include <click/vector.hh>
 
 class RouterInfo {
 public:
@@ -10,9 +12,13 @@ public:
 
     virtual String router_name() = 0;
 
-    virtual void update_topology() {}
+    virtual void update_info() = 0;
 
-    virtual void update_traffic(double srctraf) {}
+    virtual Vector<Task*>& task() = 0;
+
+    virtual Vector<double>& task_rate(double refrate) = 0;
+
+    virtual Vector<int>& task_cycle() = 0;
 };
 
 #endif

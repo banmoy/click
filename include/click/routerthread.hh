@@ -252,7 +252,9 @@ private:
 
     int move_nf(String info);
 
-    int balance_nf(String nullstr);
+    int balance(String nullstr);
+
+    int newbalance(String nullstr);
 
     int add_thread(String nstr);
 
