@@ -13,6 +13,8 @@ public:
     virtual String router_name() = 0;
 
     virtual void update_info() = 0;
+	
+	virtual double src_rate() = 0;
 
     virtual Vector<Task*>& task() = 0;
 

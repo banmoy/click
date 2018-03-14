@@ -19,6 +19,8 @@ public:
 
     void update_info();
 
+	double src_rate();
+
 	Vector<Task*>& task();
 
     Vector<double>& task_rate(double srctraf);

@@ -1035,10 +1035,12 @@ RouterThread::newbalance(String nullstr) {
 
     HashMap<Router*, double> srcRate;
     double totalSrcRate = 0.0;
+	String sysRouter("sys");
     std::cout << "======================== newbalance ========================" << std::endl;
     std::cout << "111111111111111 update information 111111111111111" << std::endl;
     for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
-        std::cout << "Router: " << it.key().c_str() << std::endl;
+		if(it.key().equals(sysRouter)) continue;
+		std::cout << "Router: " << it.key().c_str() << std::endl;
         Router* r = it.value();
         RouterInfo *ri = r->router_info();
         ri->update_info();
@@ -1049,7 +1051,8 @@ RouterThread::newbalance(String nullstr) {
 
     std::cout << "2222222222222222 cycle and rate 222222222222222" << std::endl;
     for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
-        std::cout << "Router: " << it.key().c_str() << std::endl;
+        if(it.key().equals(sysRouter)) continue;
+		std::cout << "Router: " << it.key().c_str() << std::endl;
         Router* r = it.value();
         RouterInfo *ri = r->router_info();
         Vector<Task*>& t = ri->task();
@@ -1116,14 +1119,22 @@ RouterThread::newbalance(String nullstr) {
     }
     std::cout << "\nCPU load balance: " << newCpuBalance << std::endl;
 
+
+    std::cout << "5555555555555555 policy 5555555555555555" << std::endl;
     HashMap<Router*, String> policy;
     for(int i=0; i<sortedTasks.size(); i++) {
         Element *ele = sortedTasks[i]->element();
         Router *r = ele->router();
         std::stringstream ss;
-        ss << ele->name().c_str() << + " from " + sortedTasks[i]->home_thread_id()
-                        + " to " + << allocThread[i] + "\n";
-        policy[r] += ss.str().c_str();
+        ss << ele->name().c_str() << " from " << sortedTasks[i]->home_thread_id()
+                        << " to " << allocThread[i] << "\n";
+        String* sp = policy.findp(r);
+		if(sp == 0) {
+			String val(ss.str().c_str());
+			policy.insert(r, val);
+		} else {
+			(*sp) += ss.str().c_str();
+		}
     }
     for(HashMap<Router*, String>::const_iterator it=policy.begin(); it.live(); it++) {
         Router* r = it.key();

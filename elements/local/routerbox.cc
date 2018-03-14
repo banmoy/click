@@ -206,7 +206,20 @@ void
 RouterBox::update_info() {
     Router *r = Element::router();
     
-    for(HashMap<String, Vector<String>>::const_iterator it = _task_input.begin();
+    _tasks.resize(_id);
+    Vector<Task*> &tasks = r->_tasks;
+    for(int i=0; i<tasks.size(); i++) {
+        Task *t = tasks[i];
+        int tid = _task_id[tasks[i]->element()->name()];
+        for(int j=0; j<_toposort_task.size(); j++) {
+            if(_toposort_task[j] == tid) {
+                _tasks[j] = t;
+                break;
+            }
+        }
+    }
+    
+	for(HashMap<String, Vector<String>>::const_iterator it = _task_input.begin();
             it.live(); it++) {
         String task = it.key();
         const Vector<String>& input = it.value();
@@ -229,7 +242,7 @@ RouterBox::update_info() {
         Vector<int>* cycle = _task_input_cycle.findp(task);
         Vector<int>* rate = _task_input_rate.findp(task);
         for(int i=0; i<input.size(); ++i) {
-            std::cout << qname.c_str() << ", " << (*cycle)[i] << ", " << (*rate)[i] << " | ";
+            std::cout << input[i].c_str() << ", " << (*cycle)[i] << ", " << (*rate)[i];
         }
         std::cout << std::endl;
     }
@@ -257,7 +270,7 @@ RouterBox::update_info() {
         Vector<int>* cycle = _task_output_cycle.findp(task);
         Vector<int>* rate = _task_output_rate.findp(task);
         for(int i=0; i<output.size(); ++i) {
-            std::cout << qname.c_str() << ", " << (*cycle)[i] << ", " << (*rate)[i] << " | ";
+            std::cout << output[i].c_str() << ", " << (*cycle)[i] << ", " << (*rate)[i];
         }
         std::cout << std::endl;
     }
@@ -293,22 +306,23 @@ RouterBox::update_info() {
         }
         std::cout << std::endl;
     }
-
-    // cycles
+    
+	// cycles
     for(int i=0; i<_tasks.size(); i++) {
         int tid = _toposort_task[i];
         const String &name = _id_task[tid];
         const Vector<int> &input = _task_input_cycle[name];
         const Vector<String> &output_queue = _task_output[name];
         const Vector<int> &output = _task_output_cycle[name];
-        _raw_task_cycles[i] = _tasks[i]->cycles();
+		_tasks[i]->cycles();
+		_raw_task_cycles[i] = _tasks[i]->cycles();
         _pull_cycles[i] = 0;
         for(int j=0; j<input.size(); ++j) {
             _pull_cycles[i] += 1.0 * input[j] / input.size();
         }
         _push_cycles[i] = 0;
         for(int j=0; j<output.size(); ++j) {
-            int k = _input_to_task[output_queue[j]];
+            int k = _task_id[_input_to_task[output_queue[j]]];
             _push_cycles[i] += 1.0 * output[j] * _weight[tid][k];
         }
         _cycles[i] = _raw_task_cycles[i] - _pull_cycles[i] - _push_cycles[i];
@@ -320,7 +334,7 @@ RouterBox::update_info() {
         const String &name = _id_task[tid];
         std::cout << "(" << name.c_str() << ", " << _raw_task_cycles[i]
                   << ", " << _pull_cycles[i] << ", " << _push_cycles[i]
-                  << ", " << _cycles[i] << std::endl;
+                  << ", " << _cycles[i] << ")" << std::endl;
     }
 }
 
@@ -345,8 +359,10 @@ RouterBox::task_rate(double refrate) {
     for(int i=0; i<_id; i++) {
         int tid = _toposort_task[i];
         const String &name = _id_task[tid];
-        std::cout << "(" << name.c_str() << ", " << _rates[i] << std::endl;
+        std::cout << "(" << name.c_str() << ", " << _rates[i] << ")";
     }
+	std::cout << std::endl; 
+
     return _rates;
 }
 
@@ -397,6 +413,16 @@ RouterBox::read_handler(Element *e, void *thunk)
       default:
         return "<error>";
     }
+}
+
+double
+RouterBox::src_rate() {
+	double rate = 0;
+	const Vector<int> &output = _task_output_rate[_src_task];
+	for(int i=0; i<output.size(); i++) {
+		rate += output[i];
+	}
+	return rate;
 }
 
 void
