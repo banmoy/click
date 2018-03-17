@@ -95,7 +95,7 @@ class RatedUdpSource : public Element { public:
 
     const char *class_name() const		{ return "RatedUdpSource"; }
     const char *port_count() const		{ return PORTS_0_1; }
-//    void add_handlers() CLICK_COLD;
+    void add_handlers() CLICK_COLD;
 
     int configure(Vector<String> &conf, ErrorHandler *errh) CLICK_COLD;
     int initialize(ErrorHandler *errh) CLICK_COLD;
@@ -141,7 +141,6 @@ class RatedUdpSource : public Element { public:
 
     Packet *get_packet();
 
-    static String read_param(Element *, void *) CLICK_COLD;
     static int change_param(const String &, Element *, void *, ErrorHandler *);
 
 };
