@@ -254,7 +254,7 @@ private:
 
     int balance(String nullstr);
 
-    int newbalance(String nullstr);
+    int newbalance(String sth);
 
     int add_thread(String nstr);
 

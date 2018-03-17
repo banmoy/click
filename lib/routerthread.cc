@@ -1023,9 +1023,13 @@ RouterThread::balance(String nullstr) {
 }
 
 int
-RouterThread::newbalance(String nullstr) {
+RouterThread::newbalance(String sth) {
+    int startThread = 1;
+    IntArg().parse(sth, startThread);
+
     // index for thread starts from 1
     int cpuNum = master()->run_nthreads();
+    int validCpuNum = cpuNum - startThread + 1;
     Vector<Task*> tasks;
     Vector<int> cycles;
     Vector<double> rates;
@@ -1075,16 +1079,16 @@ RouterThread::newbalance(String nullstr) {
         tasks[i]->_task_load = oldTaskLoads[i];
         totalCpuLoad += oldTaskLoads[i];
     }
-    avgCpuLoad = totalCpuLoad / cpuNum;
+    avgCpuLoad = totalCpuLoad / validCpuNum;
 
     double oldCpuBalance = 0;
-    for(int i=1; i<=cpuNum; i++) {
+    for(int i=startThread; i<=cpuNum; i++) {
         oldCpuBalance += (oldCpuLoads[i] - avgCpuLoad) * (oldCpuLoads[i] - avgCpuLoad);
     }
-    oldCpuBalance = std::sqrt(oldCpuBalance/cpuNum);
+    oldCpuBalance = std::sqrt(oldCpuBalance/validCpuNum);
 
     std::cout << "CPU load: ";
-    for(int i=1; i<=cpuNum; i++) {
+    for(int i=startThread; i<=cpuNum; i++) {
         std::cout << "(" << i << ", " << oldCpuLoads[i] << ") "; 
     }
     std::cout << "\nCPU load balance: " << oldCpuBalance << std::endl;
@@ -1098,7 +1102,7 @@ RouterThread::newbalance(String nullstr) {
     Vector<double> newCpuLoads(cpuNum+1, 0);
     for(int i=0; i<sortedTasks.size(); i++) {
         int id = 1;
-        for(int j=1; j<=cpuNum; j++) {
+        for(int j=startThread; j<=cpuNum; j++) {
             if(newCpuLoads[j] < newCpuLoads[id]) {
                 id = j;
             }
@@ -1108,13 +1112,13 @@ RouterThread::newbalance(String nullstr) {
     }
 
     double newCpuBalance = 0;
-    for(int i=1; i<=cpuNum; i++) {
+    for(int i=startThread; i<=cpuNum; i++) {
         newCpuBalance += (newCpuLoads[i] - avgCpuLoad) * (newCpuLoads[i] - avgCpuLoad);
     }
-    newCpuBalance = std::sqrt(newCpuBalance/cpuNum);
+    newCpuBalance = std::sqrt(newCpuBalance/validCpuNum);
     
     std::cout << "CPU load: ";
-    for(int i=1; i<=cpuNum; i++) {
+    for(int i=startThread; i<=cpuNum; i++) {
         std::cout << "(" << i << ", " << newCpuLoads[i] << ") "; 
     }
     std::cout << "\nCPU load balance: " << newCpuBalance << std::endl;
