@@ -1101,7 +1101,7 @@ RouterThread::newbalance(String sth) {
     Vector<int> allocThread;
     Vector<double> newCpuLoads(cpuNum+1, 0);
     for(int i=0; i<sortedTasks.size(); i++) {
-        int id = 1;
+        int id = startThread;
         for(int j=startThread; j<=cpuNum; j++) {
             if(newCpuLoads[j] < newCpuLoads[id]) {
                 id = j;
