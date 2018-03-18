@@ -1146,6 +1146,10 @@ RouterThread::newbalance(String sth) {
         std::cout << it.value().c_str() << std::endl;
     }
 
+    for(int i=0; i<sortedTasks.size(); i++) {
+    	sortedTasks[i]->move_thread(allocThread[i]);
+    }
+
    return 0;
 }
 
