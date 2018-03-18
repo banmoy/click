@@ -208,7 +208,7 @@ void
 RouterBox::update_info() {
     Router *r = Element::router();
 
-    FullNoteQueue* srcq = static_cast<FullNoteQueue *>(r->find(qname));
+    FullNoteQueue* srcq = static_cast<FullNoteQueue *>(r->find(_source_queue));
     _source_rate = srcq->push_rate();
     
     _tasks.resize(_id);
