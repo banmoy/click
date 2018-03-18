@@ -256,7 +256,7 @@ private:
 
     int newbalance(String sth);
 
-    int finalbalance(String sth);
+    int dividebalance(String sth);
 
     int randombalance(String sth);
 

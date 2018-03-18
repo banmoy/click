@@ -325,7 +325,8 @@ RouterBox::update_info() {
             int k = _task_id[_input_to_task[output_queue[j]]];
             _push_cycles[i] += 1.0 * output[j] * _weight[tid][k];
         }
-        _cycles[i] = _raw_task_cycles[i] - _pull_cycles[i] - _push_cycles[i];
+        // _cycles[i] = _raw_task_cycles[i] - _pull_cycles[i] - _push_cycles[i];
+        _cycles[i] = _raw_task_cycles[i];
     }
 
     std::cout << "cycle information" << std::endl;

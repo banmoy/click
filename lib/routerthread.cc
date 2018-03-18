@@ -602,7 +602,9 @@ RouterThread::cmd_driver() {
             ret = newbalance(msg.arg);
         } else if(msg.cmd == "randombalance") {
             ret = randombalance(msg.arg);
-        } else if(msg.cmd == "addthread") {
+        } else if(msg.cmd == "dividebalance") {
+        	ret = dividebalance(msg.arg);
+		} else if(msg.cmd == "addthread") {
             ret = add_thread(msg.arg);
         }
         master()->set_msg_status(msg.id, (ret==-1 ? -1 : 1));
@@ -1218,7 +1220,7 @@ RouterThread::newbalance(String sth) {
 }
 
 int
-RouterThread::finalbalance(String sth) {
+RouterThread::dividebalance(String sth) {
     int startThread = 1;
     IntArg().parse(sth, startThread);
 
@@ -1234,7 +1236,7 @@ RouterThread::finalbalance(String sth) {
     HashMap<Router*, double> routerLoad;
 
     String sysRouter("sys");
-    std::cout << "======================== final balance ========================" << std::endl;
+    std::cout << "======================== divide balance ========================" << std::endl;
     std::cout << "111111111111111 update information 111111111111111" << std::endl;
     for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
         if(it.key().equals(sysRouter)) continue;
@@ -1257,19 +1259,25 @@ RouterThread::finalbalance(String sth) {
         tasks.insert(r, t);
         cycles.insert(r, c);
         rates.insert(r, rate);
-        double load = c[i] * rate[i];
-        routerLoads.push_back(load);
-        totalLoads += load;
+		double ll = 0;
         for(int i=0; i<t.size(); i++) {
+        	double load = c[i] * rate[i];
+			ll += load;
             std::cout << "(" << t[i]->element()->name().c_str() << ", " << c[i] << ", " << rate[i] << ", " << load << ")";
         }
+        routerLoads.push_back(ll);
+        totalLoads += ll;
         std::cout << std::endl;       
     }
-
+	std::cout << "Router loads" << std::endl;
+	for(int i=0; i<routers.size(); i++) {
+		std::cout << "("<< routers[i]->router_name().c_str() << ", " << routerLoads[i] << ")";
+	}
+	std::cout << std::endl;
     std::cout << "3333333333333333 divide cpu 3333333333333333" << std::endl;
     int nRouters = routers.size();
     int nLeftCpuNum = validCpuNum;
-    Vector<double> tmpRouterLoads = routerLoad;
+    Vector<double> tmpRouterLoads = routerLoads;
     Vector<double> tmpThreads(nRouters, 0);
     while(true) {
         int tmpNRouters = 0;
@@ -1282,7 +1290,7 @@ RouterThread::finalbalance(String sth) {
         int leftRouters = tmpNRouters;
         for(int i=0; i<nRouters; i++) {
             if(tmpRouterLoads[i] < 0) continue;
-            doubel k = tmpRouterLoads[i] / tmpTotalLoads * nLeftCpuNum;
+            double k = tmpRouterLoads[i] / tmpTotalLoads * nLeftCpuNum;
             if(k <= 1) {
                 tmpThreads[i] = 1;
                 --nLeftCpuNum; 
@@ -1296,10 +1304,14 @@ RouterThread::finalbalance(String sth) {
             break;
         }
     }
-    Vector<double> ratio(nRouters, -1);
+	for(int i=0; i<nRouters; i++) {
+		std::cout << "(" << routers[i]->router_name().c_str() << ", " << tmpRouterLoads[i] << ", " << tmpThreads[i] << ")";
+	}
+	std::cout << std::endl;
+	Vector<double> ratio(nRouters, -1);
     for(int i=0; i<nRouters; i++) {
         if(tmpRouterLoads[i] < 0) continue;
-        ratio[i] = (tmpThreads[i] - (int)tmpThreads) / tmpThreads[i];
+        ratio[i] = (tmpThreads[i] - (int)tmpThreads[i]) / tmpThreads[i];
     }
     while(true) {
         int m1=-1, m2=-1;
@@ -1321,13 +1333,15 @@ RouterThread::finalbalance(String sth) {
                 m1 = i;
             }
         }
+		tmpRouterLoads[m1] = -1;
+		tmpRouterLoads[m2] = -1;
         if(m1 == m2) {
             tmpThreads[m1] = nLeftCpuNum;
             nLeftCpuNum = 0;
             break;
         }
-        tmpThreads[m1] = (int)(tmpThreads[m1]+1);
-        tmpThreads[m2] = (int)tmpThreads[m2];
+        tmpThreads[m2] = (int)(tmpThreads[m2]+1);
+        tmpThreads[m1] = (int)tmpThreads[m1];
         nLeftCpuNum -= (tmpThreads[m1] + tmpThreads[m2]);
     }
 
@@ -1335,6 +1349,8 @@ RouterThread::finalbalance(String sth) {
         std::cout << "("<< routers[i]->router_name().c_str() << ", " << tmpThreads[i] << ")";
     }
     std::cout << std::endl;
+
+	return 0;
 }
 
 int
