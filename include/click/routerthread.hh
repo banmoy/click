@@ -256,6 +256,8 @@ private:
 
     int newbalance(String sth);
 
+    int finalbalance(String sth);
+
     int randombalance(String sth);
 
     int add_thread(String nstr);

@@ -365,6 +365,10 @@ public:
         return _router_info;
     }
 
+    String router_name() {
+        return _router_info->router_name();
+    }
+
 };
 
 

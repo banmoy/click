@@ -1217,6 +1217,126 @@ RouterThread::newbalance(String sth) {
 }
 
 int
+RouterThread::finalbalance(String sth) {
+    int startThread = 1;
+    IntArg().parse(sth, startThread);
+
+    // index for thread starts from 1
+    int cpuNum = master()->run_nthreads();
+    int validCpuNum = cpuNum - startThread + 1;
+    Vector<Router*> routers;
+    Vector<double> routerLoads;
+    double totalLoads = 0;
+    HashMap<Router*, Vector<Task*>> tasks;
+    HashMap<Router*, Vector<int>> cycles;
+    HashMap<Router*, Vector<double>> rates;
+    HashMap<Router*, double> routerLoad;
+
+    String sysRouter("sys");
+    std::cout << "======================== final balance ========================" << std::endl;
+    std::cout << "111111111111111 update information 111111111111111" << std::endl;
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        if(it.key().equals(sysRouter)) continue;
+        std::cout << "Router: " << it.key().c_str() << std::endl;
+        Router* r = it.value();
+        RouterInfo *ri = r->router_info();
+        ri->update_info();
+    }
+
+    std::cout << "2222222222222222 cycle and rate 222222222222222" << std::endl;
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        if(it.key().equals(sysRouter)) continue;
+        std::cout << "Router: " << it.key().c_str() << std::endl;
+        Router* r = it.value();
+        routers.push_back(r);
+        RouterInfo *ri = r->router_info();
+        Vector<Task*>& t = ri->task();
+        Vector<int>& c = ri->task_cycle();
+        Vector<double>& rate = ri->task_rate(1.0);
+        tasks.insert(r, t);
+        cycles.insert(r, c);
+        rates.insert(r, rate);
+        double load = c[i] * rate[i];
+        routerLoads.push_back(load);
+        totalLoads += load;
+        for(int i=0; i<t.size(); i++) {
+            std::cout << "(" << t[i]->element()->name().c_str() << ", " << c[i] << ", " << rate[i] << ", " << load << ")";
+        }
+        std::cout << std::endl;       
+    }
+
+    std::cout << "3333333333333333 divide cpu 3333333333333333" << std::endl;
+    int nRouters = routers.size();
+    int nLeftCpuNum = validCpuNum;
+    Vector<double> tmpRouterLoads = routerLoad;
+    Vector<double> tmpThreads(nRouters, 0);
+    while(true) {
+        int tmpNRouters = 0;
+        double tmpTotalLoads = 0;
+        for(int i=0; i<nRouters; i++) {
+            if(tmpRouterLoads[i] < 0) continue;
+            tmpTotalLoads += tmpRouterLoads[i];
+            ++tmpNRouters;
+        }
+        int leftRouters = tmpNRouters;
+        for(int i=0; i<nRouters; i++) {
+            if(tmpRouterLoads[i] < 0) continue;
+            doubel k = tmpRouterLoads[i] / tmpTotalLoads * nLeftCpuNum;
+            if(k <= 1) {
+                tmpThreads[i] = 1;
+                --nLeftCpuNum; 
+                tmpRouterLoads[i] = -1;
+                --leftRouters;
+            } else {
+                tmpThreads[i] = k;
+            }
+        }
+        if(leftRouters == tmpNRouters) {
+            break;
+        }
+    }
+    Vector<double> ratio(nRouters, -1);
+    for(int i=0; i<nRouters; i++) {
+        if(tmpRouterLoads[i] < 0) continue;
+        ratio[i] = (tmpThreads[i] - (int)tmpThreads) / tmpThreads[i];
+    }
+    while(true) {
+        int m1=-1, m2=-1;
+        for(int i=0; i<nRouters; i++) {
+            if(tmpRouterLoads[i] > 0) {
+                m1 = m2 = i;
+                break;
+            }
+        }
+        if(m1 == -1) {
+            break;
+        }
+        for(int i=m1+1; i<nRouters; i++) {
+            if(tmpRouterLoads[i] < 0) continue;
+            if(ratio[i] > ratio[m2]) {
+                m2 = i;
+            }
+            if(ratio[i] < ratio[m1]) {
+                m1 = i;
+            }
+        }
+        if(m1 == m2) {
+            tmpThreads[m1] = nLeftCpuNum;
+            nLeftCpuNum = 0;
+            break;
+        }
+        tmpThreads[m1] = (int)(tmpThreads[m1]+1);
+        tmpThreads[m2] = (int)tmpThreads[m2];
+        nLeftCpuNum -= (tmpThreads[m1] + tmpThreads[m2]);
+    }
+
+    for(int i=0; i<nRouters; ++i) {
+        std::cout << "("<< routers[i]->router_name().c_str() << ", " << tmpThreads[i] << ")";
+    }
+    std::cout << std::endl;
+}
+
+int
 RouterThread::add_thread(String nstr) {
     int num = 0;
     IntArg().parse(nstr, num);
