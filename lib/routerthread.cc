@@ -1036,15 +1036,15 @@ RouterThread::randombalance(String sth) {
     int validCpuNum = cpuNum - startThread + 1;
     Vector<Task*> tasks;
 
-    HashMap<Router*, double> srcRate;
-    double totalSrcRate = 0.0;
     String sysRouter("sys");
     std::cout << "======================== random balance ========================" << std::endl;
     for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
         if(it.key().equals(sysRouter)) continue;
+        std::cout << "Router: " << it.key().c_str() << std::endl;
         Router* r = it.value();
         RouterInfo *ri = r->router_info();
         Vector<Task*>& t = ri->task();
+        ri->update_info();
         for(int i=0; i<t.size(); i++) {
             tasks.push_back(t[i]);
         }
@@ -1057,6 +1057,7 @@ RouterThread::randombalance(String sth) {
         allocThread.push_back(id);
     }
 
+    std::cout << "2222222222222222 policy 2222222222222222" << std::endl;
     HashMap<Router*, String> policy;
     for(int i=0; i<tasks.size(); i++) {
         Element *ele = tasks[i]->element();
@@ -1129,7 +1130,7 @@ RouterThread::newbalance(String sth) {
             tasks.push_back(t[i]);
             cycles.push_back(c[i]);
             rates.push_back(rate[i]);
-            std::cout << "(" << t[i]->element()->name().c_str() << ", " << cycles[i] << ", " << rates[i] << ")";
+            std::cout << "(" << t[i]->element()->name().c_str() << ", " << cycles[i] << ", " << rates[i] << ", " << cycles[i]*rates[i] <<  ")";
         }
         std::cout << std::endl;
     }

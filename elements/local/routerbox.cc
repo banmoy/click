@@ -242,7 +242,7 @@ RouterBox::update_info() {
         Vector<int>* cycle = _task_input_cycle.findp(task);
         Vector<int>* rate = _task_input_rate.findp(task);
         for(int i=0; i<input.size(); ++i) {
-            std::cout << input[i].c_str() << ", " << (*cycle)[i] << ", " << (*rate)[i];
+            std::cout << "(" << input[i].c_str() << ", " << (*cycle)[i] << ", " << (*rate)[i] << ")";
         }
         std::cout << std::endl;
     }
@@ -270,7 +270,7 @@ RouterBox::update_info() {
         Vector<int>* cycle = _task_output_cycle.findp(task);
         Vector<int>* rate = _task_output_rate.findp(task);
         for(int i=0; i<output.size(); ++i) {
-            std::cout << output[i].c_str() << ", " << (*cycle)[i] << ", " << (*rate)[i];
+            std::cout << "(" << output[i].c_str() << ", " << (*cycle)[i] << ", " << (*rate)[i] << ")";
         }
         std::cout << std::endl;
     }
