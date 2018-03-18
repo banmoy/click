@@ -20,8 +20,8 @@ RouterBox::configure(Vector<String> &conf, ErrorHandler *errh)
     String topo = "";
     if (Args(conf, this, errh)
         .read_mp("NAME", _router_name)
-        .read_mp("SRC", _source)
-        .read_mp("SRCQ", _source_queue)
+        .read_p("SRC", _source)
+        .read_p("SRCQ", _source_queue)
         .read_p("TOPOLOGY", topo)
         .complete() < 0)
         return -1;

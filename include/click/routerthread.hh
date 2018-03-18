@@ -258,6 +258,8 @@ private:
 
     int dividebalance(String sth);
 
+    void subbalance(const Vector<Task*>& tasks, const Vector<double>& rates, const Vector<int>& cycles, int start, int end);
+
     int randombalance(String sth);
 
     int add_thread(String nstr);
