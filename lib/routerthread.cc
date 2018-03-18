@@ -49,6 +49,8 @@ CLICK_CXX_UNPROTECT
 # include <string>
 # include <sstream>
 # include <cmath>
+# include <cstdlib> 
+# include <ctime> 
 #endif
 CLICK_DECLS
 
@@ -598,6 +600,8 @@ RouterThread::cmd_driver() {
             ret = balance(msg.arg);
         } else if(msg.cmd == "newbalance") {
             ret = newbalance(msg.arg);
+        } else if(msg.cmd == "randombalance") {
+            ret = randombalance(msg.arg);
         } else if(msg.cmd == "addthread") {
             ret = add_thread(msg.arg);
         }
@@ -1018,6 +1022,65 @@ RouterThread::balance(String nullstr) {
     // for(int i=0; i<sortedTasks.size(); i++) {
     //     sortedTasks[i]->move_thread(allocThread[i]);
     // }
+
+   return 0;
+}
+
+int
+RouterThread::randombalance(String sth) {
+    int startThread = 1;
+    IntArg().parse(sth, startThread);
+
+    // index for thread starts from 1
+    int cpuNum = master()->run_nthreads();
+    int validCpuNum = cpuNum - startThread + 1;
+    Vector<Task*> tasks;
+
+    HashMap<Router*, double> srcRate;
+    double totalSrcRate = 0.0;
+    String sysRouter("sys");
+    std::cout << "======================== random balance ========================" << std::endl;
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        if(it.key().equals(sysRouter)) continue;
+        Router* r = it.value();
+        RouterInfo *ri = r->router_info();
+        Vector<Task*>& t = ri->task();
+        for(int i=0; i<t.size(); i++) {
+            tasks.push_back(t[i]);
+        }
+    }
+
+    Vector<int> allocThread;
+    srand(time(NULL)); 
+    for(int i=0; i<tasks.size(); i++) {
+        int id = rand() % validCpuNum + startThread;
+        allocThread.push_back(id);
+    }
+
+    HashMap<Router*, String> policy;
+    for(int i=0; i<tasks.size(); i++) {
+        Element *ele = tasks[i]->element();
+        Router *r = ele->router();
+        std::stringstream ss;
+        ss << ele->name().c_str() << " from " << tasks[i]->home_thread_id()
+                        << " to " << allocThread[i] << "\n";
+        String* sp = policy.findp(r);
+        if(sp == 0) {
+            String val(ss.str().c_str());
+            policy.insert(r, val);
+        } else {
+            (*sp) += ss.str().c_str();
+        }
+    }
+    for(HashMap<Router*, String>::const_iterator it=policy.begin(); it.live(); it++) {
+        Router* r = it.key();
+        std::cout << "Router: " << r->router_info()->router_name().c_str() << std::endl;
+        std::cout << it.value().c_str() << std::endl;
+    }
+
+    for(int i=0; i<tasks.size(); i++) {
+        tasks[i]->move_thread(allocThread[i]);
+    }
 
    return 0;
 }
