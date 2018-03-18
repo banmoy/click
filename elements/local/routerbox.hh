@@ -33,6 +33,9 @@ private:
     String _router_name;
     String _topo;
     String _src_task;
+    String _source;
+    String _source_queue;
+    double _source_rate;
     int _id;
 
     // task name to task id

@@ -20,6 +20,8 @@ RouterBox::configure(Vector<String> &conf, ErrorHandler *errh)
     String topo = "";
     if (Args(conf, this, errh)
         .read_mp("NAME", _router_name)
+        .read_mp("SRC", _source)
+        .read_mp("SRCQ", _source_queue)
         .read_p("TOPOLOGY", topo)
         .complete() < 0)
         return -1;
@@ -205,6 +207,9 @@ RouterBox::router_name()
 void
 RouterBox::update_info() {
     Router *r = Element::router();
+
+    FullNoteQueue* srcq = static_cast<FullNoteQueue *>(r->find(qname));
+    _source_rate = srcq->push_rate();
     
     _tasks.resize(_id);
     Vector<Task*> &tasks = r->_tasks;
@@ -346,6 +351,7 @@ RouterBox::task() {
 
 Vector<double>&
 RouterBox::task_rate(double refrate) {
+    refrate *= _source_rate;
     for(int i=0; i<_rates.size(); i++) {
         _rates[i] = 0;
     }
