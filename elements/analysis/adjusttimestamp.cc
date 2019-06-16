@@ -50,7 +50,7 @@ AdjustTimestamp::simple_action(Packet *p)
     else
 	ts = &FIRST_TIMESTAMP_ANNO(p);
     if (*ts || _all)
-	*ts += _ts;
+	*ts -= _ts;
     return p;
 }
 
