@@ -1225,7 +1225,7 @@ RouterThread::subbalance(const Vector<Task*>& tasks, const Vector<double>& rates
     int validCpuNum = cpuNum - start + 1;
     Vector<double> oldTaskLoads;
     Vector<double> newCpuLoads(cpuNum+1, 0);
-    Vector<int> allocThread, 
+    Vector<int> allocThread;
     double totalCpuLoad=0, avgCpuLoad=0;
 
     for(int i=0; i<tasks.size(); i++) {
