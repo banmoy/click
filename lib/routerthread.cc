@@ -606,6 +606,8 @@ RouterThread::cmd_driver() {
         	ret = dividebalance(msg.arg);
 		} else if(msg.cmd == "addthread") {
             ret = add_thread(msg.arg);
+        } else if (msg.cmd == "global") {
+            ret = global(msg.arg);
         }
         master()->set_msg_status(msg.id, (ret==-1 ? -1 : 1));
     }
@@ -1099,6 +1101,24 @@ RouterThread::randombalance(String sth) {
 
     for(int i=0; i<tasks.size(); i++) {
         tasks[i]->move_thread(allocThread[i]);
+    }
+
+   return 0;
+}
+
+int
+RouterThread::global(String sth) {
+    std::cout << "======================== global balance ========================" << std::endl;
+
+    bool move = false;
+    BoolArg().parse(sth, move);
+    String sysRouter("sys");
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        if(it.key().equals(sysRouter)) continue;
+        std::cout << "Router: " << it.key().c_str() << std::endl;
+        Router* r = it.value();
+        RouterInfo *ri = r->router_info();
+        ri->update_chain(move);
     }
 
    return 0;

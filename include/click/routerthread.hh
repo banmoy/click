@@ -266,6 +266,8 @@ private:
 
     int add_thread(String nstr);
 
+    int global(String sth);
+
 public:
     void cmd_driver();
     atomic_uint32_t _task_num;

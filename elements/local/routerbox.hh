@@ -29,6 +29,8 @@ public:
 
     void add_handlers() CLICK_COLD;
 
+    int setup1(Vector<String> &conf, ErrorHandler *errh);
+
 private:
     String _router_name;
     String _topo;
@@ -95,6 +97,53 @@ private:
     void setup_topology();
 
     void topology_sort();
+
+public:
+    // set up chain
+    // cpu frequence
+    long _cpu_freq;
+
+    // cpu load threshold
+    double _thresh;
+
+    // start cpu
+    int _start_cpu;
+
+    // end cpu
+    int _end_cpu;
+
+    // task chain
+    String _task_chain;
+
+    int _num_task;
+
+    Vector<String> _task_name;
+
+    Vector<long> _task_cycle;
+
+    Vector<int> _task_rate;
+
+    Vector<long> _task_load;
+
+    Vector<Task*> _task_obj;
+
+    Vector<int> _task_cpu;
+
+    Vector<int> _task_move;
+
+    Vector<double> _cpu_load;
+
+    Vector<double> _move_cpu_load;
+
+    bool _task_init;
+
+    int setup2(Vector<String> &conf, ErrorHandler *errh);
+
+    void setup_chain();
+
+    void update_chain(bool move);
+
+    void init_task();
 
     static String read_handler(Element*, void*) CLICK_COLD;
 };

@@ -3,6 +3,7 @@
 #include "routerbox.hh"
 #include <click/router.hh>
 #include "elements/standard/fullnotequeue.hh"
+#include "elements/standard/unqueue.hh"
 #include <iostream>
 #include <queue>
 CLICK_DECLS
@@ -17,18 +18,212 @@ RouterBox::~RouterBox()
 int
 RouterBox::configure(Vector<String> &conf, ErrorHandler *errh)
 {
+    return setup2(conf, errh);
+}
+
+int
+RouterBox::setup2(Vector<String> &conf, ErrorHandler *errh)
+{
+    String chain = "";
+    if (Args(conf, this, errh)
+        .read_mp("NAME", _router_name)
+        .read_p("CPU_FREQ", _cpu_freq)
+        .read_p("THRESH", _thresh)
+        .read_p("START_CPU", _start_cpu)
+        .read_p("END_CPU", _end_cpu)
+        .read_p("CHAIN", chain)
+        .complete() < 0)
+        return -1;
+    router()->set_router_info(this);
+    _task_chain = chain;
+    if(_task_chain.length())
+        setup_chain();
+    return 0;
+}
+
+void
+RouterBox::setup_chain() {
+     int i = 0;
+     _num_task = 0;
+    while(i<_task_chain.length()) {
+        int j=i;
+        while(_task_chain[j] != ',')
+            ++j;
+        String task = _task_chain.substring(i, j-i).unshared();
+        _task_name.push_back(task);
+        i = ++j;
+        ++_num_task;
+    }
+
+    _task_cycle.resize(_num_task);
+    _task_rate.resize(_num_task);
+    _task_load.resize(_num_task);
+    _task_obj.resize(_num_task);
+    _task_cpu.resize(_num_task);
+    _task_move.resize(_num_task);
+    _cpu_load.resize(_end_cpu + 1);
+    _move_cpu_load.resize(_end_cpu + 1);
+
+    _task_init = false;
+
+    std::cout << "NF information for " << _router_name.c_str()
+              << "\nCPU frequence: " << _cpu_freq
+              << "\nthreshold: " << _thresh
+              << "\nstart CPU: " << _start_cpu
+              << "\nend CPU: " << _end_cpu
+              << "\nnumber tasks: " << _num_task << std::endl; 
+
+    _task_rate.resize(_num_task);
+
+    std::cout << "task chain:";
+    for (int i = 0; i < _task_name.size(); i++) {
+        std::cout << " " << _task_name[i].c_str();
+    }
+    std::cout << std::endl;
+}
+
+void
+RouterBox::init_task() {
+    if (!_task_init) {
+        Router *r = Element::router();
+        Vector<Task*> &tasks = r->_tasks;
+        for (int k = 0; k < _task_name.size(); k++) {
+            String name = _task_name[k];
+            for(int i=0; i<tasks.size(); i++) {
+                Task *t = tasks[i];
+                if (name.equals(t->element()->name())) {
+                    _task_obj[k] = t;
+                    _task_cpu[k] = t->home_thread_id();
+                }
+            }
+        }
+        std::cout << "Init task:";
+        for (int i = 0; i < _task_obj.size(); i++) {
+            std::cout << " (" << _task_obj[i]->element()->name().c_str()
+                      << ", " << _task_cpu[i] << ")";
+        }
+        std::cout << std::endl;
+        _task_init = true;
+    }
+}
+
+void
+RouterBox::update_chain(bool move) {
+    init_task();
+
+    int num_cpu = _end_cpu - _start_cpu + 1;
+    double totalLoad = 0;
+    for (int i = 0; i < _task_obj.size(); i++) {
+        Unqueue* uq = static_cast<Unqueue *>(_task_obj[i]->element());
+        _task_cycle[i] = uq->pull_cycle();
+        _task_rate[i] = uq->pull_rate();
+        _task_load[i] = _task_cycle[i] * _task_rate[i];
+        totalLoad += _task_load[i];
+    }
+    double avg_load = totalLoad / num_cpu;
+
+    int current_cpu = _start_cpu;
+    double current_cpu_load = 0;
+    for (int i = 0; i < _task_load.size(); i++) {
+        if (current_cpu == _end_cpu) {
+            _task_move[i] = _end_cpu;
+            continue;
+        }
+        double load = _task_load[i];
+        double add_load = current_cpu_load + load;
+        if (add_load <= avg_load) {
+            _task_move[i] = current_cpu;
+            current_cpu_load = add_load;
+            if (current_cpu_load >= avg_load) {
+                current_cpu++;
+                current_cpu_load = 0;
+            }
+        } else {
+            double diff1 = avg_load - current_cpu_load;
+            double diff2 = add_load - avg_load;
+            if (diff1 >= diff2) {
+                _task_move[i] = current_cpu;
+            } else {
+                i--;
+            }
+            current_cpu++;
+            current_cpu_load = 0;
+        }
+    }
+
+    for (int i = 0; i < _cpu_load.size(); i++) {
+        _cpu_load[i] = 0;
+        _move_cpu_load[i] = 0;
+    }
+
+    for (int i = 0; i < _task_load.size(); i++) {
+        double load = _task_load[i];
+        _cpu_load[_task_cpu[i]] += load;
+        _move_cpu_load[_task_move[i]] += load;
+    }
+
+    std::cout << "======================== current load ========================" << std::endl;
+    std::cout << "============ CPU ============\n";
+    std::cout << "total load: " << (long) totalLoad << ", average load: " << (long) avg_load << "\n";
+    std::cout << "(cpu, load, ratio)\n";
+    for (int i = _start_cpu; i <= _end_cpu; i++) {
+        std::cout << "(" << i << ", " << (long) _cpu_load[i] << ", " << _cpu_load[i] / _cpu_freq << ")\n";
+    }
+    std::cout << "\n============ Task ============\n";
+    std::cout << "(name, cpu, cycle, rate, load, ratio)\n";
+    for (int i = 0; i < _task_load.size(); i++) {
+        std::cout << "(" << _task_name[i].c_str()
+                  << ", " << _task_cpu[i]
+                  << ", " << _task_cycle[i]
+                  << ", " << _task_rate[i]
+                  << ", " << _task_load[i]
+                  << ", " << _task_load[i] / (double) _cpu_freq
+                  << ")\n";
+    }
+
+    std::cout << "======================== balance load ========================" << std::endl;
+    std::cout << "============ CPU ============\n";
+    std::cout << "total load: " << (long) totalLoad << ", average load: " << (long) avg_load << "\n";
+    std::cout << "(cpu, load, ratio)\n";
+    for (int i = _start_cpu; i <= _end_cpu; i++) {
+        std::cout << "(" << i << ", " << (long) _move_cpu_load[i] << ", " << _move_cpu_load[i] / _cpu_freq << ")\n";
+    }
+    std::cout << "\n============ Task ============\n";
+    std::cout << "(name, cpu, cycle, rate, load, ratio)\n";
+    for (int i = 0; i < _task_load.size(); i++) {
+        std::cout << "(" << _task_name[i].c_str()
+                  << ", " << _task_move[i]
+                  << ", " << _task_cycle[i]
+                  << ", " << _task_rate[i]
+                  << ", " << _task_load[i]
+                  << ", " << _task_load[i] / (double) _cpu_freq
+                  << ")\n";
+    }
+    std::cout << std::endl;
+
+    if (move) {
+        for (int i = 0; i < _task_obj.size(); i++) {
+            Task* task = _task_obj[i];
+            task->move_thread(_task_move[i]);
+            _task_cpu[i] = _task_move[i];
+        }
+        std::cout << "move task successfully" << std::endl;
+    }
+}
+
+int
+RouterBox::setup1(Vector<String> &conf, ErrorHandler *errh)
+{
     String topo = "";
     if (Args(conf, this, errh)
         .read_mp("NAME", _router_name)
-        .read_p("SRC", _source)
-        .read_p("SRCQ", _source_queue)
         .read_p("TOPOLOGY", topo)
         .complete() < 0)
         return -1;
     router()->set_router_info(this);
     _topo = topo;
-	if(_topo.length())
-		setup_topology();
+    if(_topo.length())
+        setup_topology();
     return 0;
 }
 

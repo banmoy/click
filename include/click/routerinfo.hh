@@ -21,6 +21,8 @@ public:
     virtual Vector<double>& task_rate(double refrate) = 0;
 
     virtual Vector<int>& task_cycle() = 0;
+
+    virtual void update_chain(bool move) = 0;
 };
 
 #endif

@@ -76,7 +76,6 @@ FullNoteQueue::pull(int)
 	p = pull_success(h, nh);
     } else
 	p = pull_failure();
-    unsigned delta = click_get_cycles() - cycles;
     return p;
 }
 
