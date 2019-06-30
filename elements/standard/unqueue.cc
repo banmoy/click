@@ -69,8 +69,9 @@ Unqueue::run_task(Task *)
     }
 
     while (worked < limit && _active) {
+    click_cycles_t cycles = click_get_cycles();
 	if (Packet *p = input(0).pull()) {
-        click_cycles_t cycles = click_get_cycles();
+   //     click_cycles_t cycles = click_get_cycles();
 	    ++worked;
 	    ++_count;
 	    output(0).push(p);
