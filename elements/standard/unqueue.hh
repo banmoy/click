@@ -91,7 +91,34 @@ class Unqueue : public Element { public:
     };
     static int write_param(const String &, Element *, void *, ErrorHandler *) CLICK_COLD;
 
+#ifdef HAVE_INT64_TYPES
+    // Reduce bits of fraction for byte rate to avoid overflow
+    typedef RateEWMAX<RateEWMAXParameters<4, 10, uint64_t, int64_t> > rate_t;
+#else
+    typedef RateEWMAX<RateEWMAXParameters<4, 10> > rate_t;
+#endif
+
+    public:
+        inline int pull_cycle();
+        inline int pull_rate();
+
+        DirectEWMA _pull_cycles;
+        rate_t _pull_rate;
+
+        static String read_handler(Element *, void *) CLICK_COLD;
 };
+
+inline int
+Unqueue::pull_cycle() {
+    return _pull_cycles.unscaled_average();
+}
+
+inline int
+Unqueue::pull_rate() {
+    _pull_rate.update(0);
+    return _pull_rate.rate();
+}
+
 
 CLICK_ENDDECLS
 #endif

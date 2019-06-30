@@ -70,9 +70,13 @@ Unqueue::run_task(Task *)
 
     while (worked < limit && _active) {
 	if (Packet *p = input(0).pull()) {
+        click_cycles_t cycles = click_get_cycles();
 	    ++worked;
 	    ++_count;
 	    output(0).push(p);
+        unsigned delta = click_get_cycles() - cycles;
+        _pull_cycles.update((delta>>5) + ((_pull_cycles.unscaled_average() *31)>>5));
+        _pull_rate.update(1);
 	} else if (!_signal)
 	    goto out;
 	else
@@ -125,6 +129,22 @@ Unqueue::write_param(const String &conf, Element *e, void *user_data,
     return 0;
 }
 
+enum { H_RATE, H_CYCLE };
+
+String
+Unqueue::read_handler(Element *e, void *thunk)
+{
+    Unqueue *c = (Unqueue *)e;
+    switch ((intptr_t)thunk) {
+      case H_RATE:
+    return String(c->pull_rate());
+      case H_CYCLE:
+    return String(c->pull_cycle());
+      default:
+    return "<error>";
+    }
+}
+
 void
 Unqueue::add_handlers()
 {
@@ -138,6 +158,8 @@ Unqueue::add_handlers()
     add_write_handler("burst", write_param, h_burst);
     add_write_handler("limit", write_param, h_limit);
     add_task_handlers(&_task, &_signal);
+    add_read_handler("rate", read_handler, H_RATE);
+    add_read_handler("cycle", read_handler, H_CYCLE);
 }
 
 CLICK_ENDDECLS
