@@ -897,9 +897,19 @@ RouterThread::delete_nf(String router_name) {
 
 int
 RouterThread::move_nf(String info) {
+    int pos = 0, len = info.length();
+    while (pos < len) {
+        pos = help_move_nf(info, pos);
+    }
+
+    return 0;
+}
+
+int
+RouterThread::help_move_nf(String& info, int start) {
     String who;
     int where = 0;
-    int pos = 0, len = info.length(), first;
+    int pos = start, len = info.length(), first;
     while (pos < len && isspace((unsigned char) info[pos]))
       pos++;
     first = pos;
@@ -928,7 +938,13 @@ RouterThread::move_nf(String info) {
     }
     t->move_thread(where);
 
-    return 0;
+    std::cout << "move "
+              << t->element()->name().c_str()
+              << " to "
+              << where
+              << std::endl;
+
+    return pos;
 }
 
 static int task_increasing_sorter(const void *va, const void *vb, void *) {

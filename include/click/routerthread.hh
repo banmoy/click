@@ -252,6 +252,8 @@ private:
 
     int move_nf(String info);
 
+    int help_move_nf(String& info, int start);
+
     int balance(String nullstr);
 
     int newbalance(String sth);
