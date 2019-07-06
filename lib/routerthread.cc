@@ -1223,7 +1223,7 @@ RouterThread::local(String sth) {
         std::cout << "Router: " << it.key().c_str() << std::endl;
         Router* r = it.value();
         RouterInfo *ri = r->router_info();
-        ri->update_chain(move);
+        ri->update_local_chain(move);
     }
 
    return 0;
@@ -1244,7 +1244,7 @@ RouterThread::local_reset(String sth) {
         std::cout << "Router: " << it.key().c_str() << std::endl;
         Router* r = it.value();
         RouterInfo *ri = r->router_info();
-        ri->update_chain(move);
+        ri->update_local_chain(move);
         ri->reset_element(name);
     }
 
