@@ -833,7 +833,7 @@ RouterBox::read_handler(Element *e, void *thunk)
             if(i) ret += ",";
             Task* t = tasks[i];
             Element* e = t->element();
-            ret += r->ename(e->eindex()) + String(":") + String(t->u_thread_id());
+            ret += r->ename(e->eindex()) + String(":") + String(t->home_thread_id());
         }
         return ret;
       }
