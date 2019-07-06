@@ -179,7 +179,11 @@ public:
 
     bool is_congestion();
 
+    bool execute(int c1, int c11, int c12);
+
     bool execute(int c1, int c11, int c12, int c2, int c21, int c22);
+
+    void move_task(int tid1, int c1);
 
     void move_task(int tid1, int c1, int tid2, int c2);
 
