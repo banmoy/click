@@ -329,6 +329,7 @@ RouterBox::update_chain(bool move) {
 
 void
 RouterBox::update_local_chain(bool move) {
+	init_task();
     init_queue();
 
     Vector<String> queues;
@@ -343,6 +344,7 @@ RouterBox::update_local_chain(bool move) {
 
     if (queues.size() == 0) {
         std::cout << "there is no congestion." << std::endl;
+		return;
     } else {
         std::cout << "congestion happened:";
         for (int i = 0; i < queues.size(); i++) {
@@ -404,11 +406,11 @@ RouterBox::update_local_chain(bool move) {
     }
  
     if (move) {
-        if (_1) {
+        if (!_1) {
            move_task(start_pos, thread - 1, start_pos + 1, thread - 1); 
-        } else if (_2) {
+        } else if (!_2) {
            move_task(start_pos, thread - 1, end_pos - 1, thread + 1); 
-        } else if (_3) {
+        } else if (!_3) {
            move_task(end_pos - 2, thread + 1, end_pos - 1, thread + 1); 
         }
     }
