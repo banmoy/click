@@ -169,6 +169,8 @@ public:
 
     void update_local_chain(bool move);
 
+    bool try_local_chain(bool move);
+
     void check_congestion();
 
     void init_task();

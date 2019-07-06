@@ -227,6 +227,10 @@ void
 RouterBox::update_chain(bool move) {
     init_task();
 
+    if (move && try_local_chain(move)) {
+        return;
+    }
+
     int num_cpu = _end_cpu - _start_cpu + 1;
     double totalLoad = 0;
     for (int i = 0; i < _task_obj.size(); i++) {
@@ -325,6 +329,105 @@ RouterBox::update_chain(bool move) {
         }
         std::cout << "move task successfully" << std::endl;
     }
+}
+
+bool
+RouterBox::try_local_chain(bool move) {
+    init_task();
+    init_queue();
+
+    Vector<String> queues;
+    Vector<int> index;
+    for (int i = 0; i < _queue_name.size(); i++) {
+        SimpleQueue* q = _queue_obj[i];
+        if (is_congestion(q)) {
+            queues.push_back(_queue_name[i]);
+            index.push_back(i);
+        }
+    }
+
+    if (queues.size() == 0) {
+        std::cout << "there is no congestion." << std::endl;
+        return false;
+    } else {
+        std::cout << "congestion happened:";
+        for (int i = 0; i < queues.size(); i++) {
+            std::cout << " " << _queue_name[index[i]].c_str();
+        }
+        std::cout << std::endl;
+    }
+
+    if (queues.size() > 1) {
+        std::cout << "can't update chain because more than one congestion happened." << std::endl;
+        return false;
+    }
+
+    int pos = index[0];
+    int thread = _task_cpu[pos];
+    if (thread == _start_cpu || thread == _end_cpu) {
+        std::cout << "can't update chain because there is no cpu: "
+                  << "start cpu is " << _start_cpu
+                  << ", end cpu is " << _end_cpu
+                  << ", congestion cpu is " << thread
+                  << std::endl;
+        return false;
+    }
+
+    int start_pos = pos;
+    int end_pos = pos + 1;
+    while (end_pos < _task_obj.size()) {
+        Task* t = _task_obj[end_pos];
+        if (t->home_thread_id() != thread) {
+            break;
+        }
+        end_pos++;
+    }
+
+    std::cout << "congestion happened on cpu " << thread << ":";
+    for (int i = start_pos; i < end_pos; i++) {
+        std::cout << " " << _task_name[i].c_str();
+    }
+    std::cout << std::endl;
+
+    int num = end_pos - start_pos;
+    if (num < 3) {
+         std::cout << "can't update chain because congested tasks is less than 3" << std::endl;
+         return false;
+    }
+
+    // a b c
+    // 4. a -> thread-1
+    // 5. c -> thread+1
+    // 1. (a b) -> thread-1 
+    // 2. a -> thread-1 c -> thread+1
+    // 3. (b c) -> thread+1
+    std::cout << "iterate possible solutions" << std::endl;
+    bool _4 = execute(start_pos, thread, thread - 1);
+    bool _5 = execute(end_pos - 1, thread, thread + 1);
+    bool _1 = execute(start_pos, thread, thread - 1, start_pos + 1, thread, thread - 1);
+    bool _2 = execute(start_pos, thread, thread - 1, end_pos - 1, thread, thread + 1);
+    bool _3 = execute(end_pos - 2, thread, thread + 1, end_pos - 1, thread, thread + 1);
+
+    if (!_4 && !_5 && !_1 && !_2 && !_3) {
+        std::cout << "there is no candidate update." << std::endl;
+        return false;
+    }
+ 
+    if (move) {
+        if (!_4) {
+            move_task(start_pos, thread - 1);
+        } else if (!_5) {
+            move_task(end_pos - 1, thread + 1);
+        } else if (!_1) {
+           move_task(start_pos, thread - 1, start_pos + 1, thread - 1); 
+        } else if (!_2) {
+           move_task(start_pos, thread - 1, end_pos - 1, thread + 1); 
+        } else if (!_3) {
+           move_task(end_pos - 2, thread + 1, end_pos - 1, thread + 1); 
+        }
+    }
+
+    return true;
 }
 
 void
