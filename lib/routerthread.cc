@@ -1194,10 +1194,12 @@ RouterThread::global_reset(String sth) {
     std::cout << "======================== global balance ========================" << std::endl;
 
     bool move = false;
-    BoolArg().parse(sth, move);
     int start = 0;
-    get_reset_name(sth, start);
     String name = get_reset_name(sth, start);
+    String s = get_reset_name(sth, start);
+    if (s.equals("true")) {
+        move = true;
+    }
     String sysRouter("sys");
     for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
         if(it.key().equals(sysRouter)) continue;
@@ -1234,10 +1236,12 @@ RouterThread::local_reset(String sth) {
     std::cout << "======================== local balance ========================" << std::endl;
 
     bool move = false;
-    BoolArg().parse(sth, move);
     int start = 0;
-    get_reset_name(sth, start);
     String name = get_reset_name(sth, start);
+    String s = get_reset_name(sth, start);
+    if (s.equals("true")) {
+        move = true;
+    }
     String sysRouter("sys");
     for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
         if(it.key().equals(sysRouter)) continue;
