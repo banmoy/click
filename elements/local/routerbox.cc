@@ -308,8 +308,125 @@ RouterBox::update_chain(bool move) {
 
 void
 RouterBox::update_local_chain(bool move) {
+    init_queue();
+
+    Vector<String> queues;
+    Vector<int> index;
+    for (int i = 0; i < _queue_name.size(); i++) {
+        SimpleQueue* q = _queue_obj[i];
+        if (is_congestion(q)) {
+            queues.push_back(_queue_name[i]);
+            index.push_back(i);
+        }
+    }
+
+    if (queues.size() == 0) {
+        std::cout << "there is no congestion." << std::endl;
+    } else {
+        std::cout << "congestion happened:";
+        for (int i = 0; i < queues.size(); i++) {
+            std::cout << " " << _queue_name[index[i]].c_str();
+        }
+        std::cout << std::endl;
+    }
+
+    if (queues.size() > 1) {
+        std::cout << "can't update chain because more than one congestion happened." << std::endl;
+        return;
+    }
+
+    int pos = index[0];
+    Task* task = _task_obj[pos];
+    int thread = _task_cpu[pos];
+    if (thread == _start_cpu || thread == _end_cpu) {
+        std::cout << "can't update chain because there is no cpu: "
+                  << "start cpu is " << _start_cpu
+                  << ", end cpu is " << _end_cpu
+                  << ", congestion cpu is " << thread;
+                  << std::endl;
+        return;
+    }
+
+    int start_pos = pos;
+    int end_pos = pos + 1;
+    while (end_pos < _task_obj.size()) {
+        Task* t = _task_obj[end_pos];
+        if (t->home_thread_id() != thread) {
+            break;
+        }
+        end_pos++;
+    }
+
+    std::cout << "congestion happened on cpu " << thread << ":";
+    for (int i = start_pos; i < end_pos; i++) {
+        std::cout << " " << _task_name[i].c_str();
+    }
+    std::cout << std::endl;
+
+    int num = end_pos - start_pos;
+    if (num <3) {
+         std::cout << "can't update chain because congested tasks is less than 3" << std::endl;
+         return;
+    }
+
+    // a b c
+    // 1. (a b) -> thread-1 
+    // 2. a -> thread-1 c -> thread+1
+    // 3. (b c) -> thread+1
+    std::cout << "iterate possible solutions" << std::endl;
+    bool _1 = execute(start_pos, thread, thread - 1, start_pos + 1, thread, thread - 1);
+    bool _2 = execute(start_pos, thread, thread - 1, end_pos - 1, thread, thread + 1);
+    bool _3 = execute(end_pos - 2, thread, thread + 1, end_pos - 1, thread, thread + 1);
+
+    if (!_1 && !_2 && !_3) {
+        std::cout << "there is no candidate update." << std::endl;
+        return;
+    }
+ 
+    if (move) {
+        if (_1) {
+           move(start_pos, thread - 1, start_pos + 1, thread - 1); 
+        } else if (_2) {
+           move(start_pos, thread - 1, end_pos - 1, thread + 1); 
+        } else if (_3) {
+           move(end_pos - 2, thread + 1, end_pos - 1, thread + 1); 
+        }
+    }
 }
 
+bool
+RouterBox::execute(int c1, int c11, int c12, int c2, int c21, int c22) {
+    Task* t1 = _task_obj[c1];
+    Task* t2 = _task_obj[c2];
+    t1->move_thread(c12);
+    t2->move_thread(c22);
+    usleep(2 * _check_interval);
+    bool r = is_congestion();
+    t1->move_thread(c11);
+    t2->move_thread(c21);
+    std::cout << "move " << t1->element()->name().c_str() << " from " << c11 " to " << c12
+              << ", move " << t2->element()->name().c_str() << " from " << c21 " to " << c22
+              << ", congestion " << (r ? "true" : "false")
+              << std::endl;
+    return r;
+}
+
+void
+RouterBox::move(int tid1, int c1, int tid2, int c2) {
+    Task* t1 = _task_obj[tid1];
+    Task* t2 = _task_obj[tid2];
+    t1->move_thread(c1);
+    t2->move_thread(c2);
+
+    int c11 = _task_cpu[tid1];
+    int c22 = _task_cpu[tid2];
+    _task_cpu[tid1] = c1;
+    _task_cpu[tid2] = c2;
+    std::cout << "update local chain successfully: "
+              << "move " << t1->element()->name().c_str() << " from " << c11 " to " << c1
+              << ", move " << t2->element()->name().c_str() << " from " << c22 " to " << c2
+              << std::endl;
+}
 
 void
 RouterBox::reset_element(String name) {
@@ -696,7 +813,7 @@ RouterBox::read_handler(Element *e, void *thunk)
             if(i) ret += ",";
             Task* t = tasks[i];
             Element* e = t->element();
-            ret += r->ename(e->eindex()) + String(":") + String(t->home_thread_id());
+            ret += r->ename(e->eindex()) + String(":") + String(t->u_thread_id());
         }
         return ret;
       }
