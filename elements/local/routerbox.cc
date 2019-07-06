@@ -202,6 +202,27 @@ RouterBox::check_congestion() {
     }
 }
 
+bool
+RouterBox::is_congestion() {
+    init_queue();
+
+    Vector<String> queues;
+    Vector<int> index;
+    for (int i = 0; i < _queue_name.size(); i++) {
+        SimpleQueue* q = _queue_obj[i];
+        if (is_congestion(q)) {
+            queues.push_back(_queue_name[i]);
+            index.push_back(i);
+        }
+    }
+
+    if (queues.size() == 0) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
 void
 RouterBox::update_chain(bool move) {
     init_task();
@@ -336,13 +357,12 @@ RouterBox::update_local_chain(bool move) {
     }
 
     int pos = index[0];
-    Task* task = _task_obj[pos];
     int thread = _task_cpu[pos];
     if (thread == _start_cpu || thread == _end_cpu) {
         std::cout << "can't update chain because there is no cpu: "
                   << "start cpu is " << _start_cpu
                   << ", end cpu is " << _end_cpu
-                  << ", congestion cpu is " << thread;
+                  << ", congestion cpu is " << thread
                   << std::endl;
         return;
     }
@@ -364,7 +384,7 @@ RouterBox::update_local_chain(bool move) {
     std::cout << std::endl;
 
     int num = end_pos - start_pos;
-    if (num <3) {
+    if (num < 3) {
          std::cout << "can't update chain because congested tasks is less than 3" << std::endl;
          return;
     }
@@ -404,8 +424,8 @@ RouterBox::execute(int c1, int c11, int c12, int c2, int c21, int c22) {
     bool r = is_congestion();
     t1->move_thread(c11);
     t2->move_thread(c21);
-    std::cout << "move " << t1->element()->name().c_str() << " from " << c11 " to " << c12
-              << ", move " << t2->element()->name().c_str() << " from " << c21 " to " << c22
+    std::cout << "move " << t1->element()->name().c_str() << " from " << c11 << " to " << c12
+              << ", move " << t2->element()->name().c_str() << " from " << c21 << " to " << c22
               << ", congestion " << (r ? "true" : "false")
               << std::endl;
     return r;
@@ -423,8 +443,8 @@ RouterBox::move_task(int tid1, int c1, int tid2, int c2) {
     _task_cpu[tid1] = c1;
     _task_cpu[tid2] = c2;
     std::cout << "update local chain successfully: "
-              << "move " << t1->element()->name().c_str() << " from " << c11 " to " << c1
-              << ", move " << t2->element()->name().c_str() << " from " << c22 " to " << c2
+              << "move " << t1->element()->name().c_str() << " from " << c11 << " to " << c1
+              << ", move " << t2->element()->name().c_str() << " from " << c22 << " to " << c2
               << std::endl;
 }
 
