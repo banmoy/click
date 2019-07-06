@@ -270,6 +270,8 @@ private:
 
     int global(String sth);
 
+    int global_reset(String sth);
+
     void reset_element(String name);
 
 public:
