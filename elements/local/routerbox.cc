@@ -392,21 +392,29 @@ RouterBox::update_local_chain(bool move) {
     }
 
     // a b c
+    // 4. a -> thread-1
+    // 5. c -> thread+1
     // 1. (a b) -> thread-1 
     // 2. a -> thread-1 c -> thread+1
     // 3. (b c) -> thread+1
     std::cout << "iterate possible solutions" << std::endl;
+    bool _4 = execute(start_pos, thread, thread - 1);
+    bool _5 = execute(end_pos - 1, thread, thread + 1);
     bool _1 = execute(start_pos, thread, thread - 1, start_pos + 1, thread, thread - 1);
     bool _2 = execute(start_pos, thread, thread - 1, end_pos - 1, thread, thread + 1);
     bool _3 = execute(end_pos - 2, thread, thread + 1, end_pos - 1, thread, thread + 1);
 
-    if (!_1 && !_2 && !_3) {
+    if (!_4 && !_5 && !_1 && !_2 && !_3) {
         std::cout << "there is no candidate update." << std::endl;
         return;
     }
  
     if (move) {
-        if (!_1) {
+        if (!_4) {
+            move_task(start_pos, thread - 1);
+        } else if (!_5) {
+            move_task(end_pos - 1, thread + 1);
+        } else if (!_1) {
            move_task(start_pos, thread - 1, start_pos + 1, thread - 1); 
         } else if (!_2) {
            move_task(start_pos, thread - 1, end_pos - 1, thread + 1); 
@@ -414,6 +422,19 @@ RouterBox::update_local_chain(bool move) {
            move_task(end_pos - 2, thread + 1, end_pos - 1, thread + 1); 
         }
     }
+}
+
+bool
+RouterBox::execute(int c1, int c11, int c12) {
+    Task* t1 = _task_obj[c1];
+    t1->move_thread(c12);
+    usleep(2 * _check_interval);
+    bool r = is_congestion();
+    t1->move_thread(c11);
+    std::cout << "move " << t1->element()->name().c_str() << " from " << c11 << " to " << c12
+              << ", congestion " << (r ? "true" : "false")
+              << std::endl;
+    return r;
 }
 
 bool
@@ -431,6 +452,18 @@ RouterBox::execute(int c1, int c11, int c12, int c2, int c21, int c22) {
               << ", congestion " << (r ? "true" : "false")
               << std::endl;
     return r;
+}
+
+void
+RouterBox::move_task(int tid1, int c1) {
+    Task* t1 = _task_obj[tid1];
+    t1->move_thread(c1);
+
+    int c11 = _task_cpu[tid1];
+    _task_cpu[tid1] = c1;
+    std::cout << "update local chain successfully: "
+              << "move " << t1->element()->name().c_str() << " from " << c11 << " to " << c1
+              << std::endl;
 }
 
 void
