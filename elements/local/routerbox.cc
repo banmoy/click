@@ -385,11 +385,11 @@ RouterBox::update_local_chain(bool move) {
  
     if (move) {
         if (_1) {
-           move(start_pos, thread - 1, start_pos + 1, thread - 1); 
+           move_task(start_pos, thread - 1, start_pos + 1, thread - 1); 
         } else if (_2) {
-           move(start_pos, thread - 1, end_pos - 1, thread + 1); 
+           move_task(start_pos, thread - 1, end_pos - 1, thread + 1); 
         } else if (_3) {
-           move(end_pos - 2, thread + 1, end_pos - 1, thread + 1); 
+           move_task(end_pos - 2, thread + 1, end_pos - 1, thread + 1); 
         }
     }
 }
@@ -412,7 +412,7 @@ RouterBox::execute(int c1, int c11, int c12, int c2, int c21, int c22) {
 }
 
 void
-RouterBox::move(int tid1, int c1, int tid2, int c2) {
+RouterBox::move_task(int tid1, int c1, int tid2, int c2) {
     Task* t1 = _task_obj[tid1];
     Task* t2 = _task_obj[tid2];
     t1->move_thread(c1);

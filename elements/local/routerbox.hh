@@ -179,7 +179,7 @@ public:
 
     bool execute(int c1, int c11, int c12, int c2, int c21, int c22);
 
-    void move(int tid1, int c1, int tid2, int c2);
+    void (int tid1, int c1, int tid2, int c2);
 
     static String read_handler(Element*, void*) CLICK_COLD;
 };
