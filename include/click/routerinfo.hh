@@ -22,7 +22,11 @@ public:
 
     virtual Vector<int>& task_cycle() = 0;
 
+    virtual void check_congestion() = 0;
+
     virtual void update_chain(bool move) = 0;
+
+    virtual void update_local_chain(bool move) = 0;
 
     virtual void reset_element(String name) = 0;
 };

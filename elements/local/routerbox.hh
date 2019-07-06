@@ -5,6 +5,7 @@
 #include <click/routerinfo.hh>
 #include <click/hashmap.hh>
 #include <click/string.hh>
+#include "elements/standard/simplequeue.hh"
 
 class RouterBox : public Element, public RouterInfo {
 public:
@@ -117,9 +118,24 @@ public:
     // task chain
     String _task_chain;
 
+    // task queues
+    String _task_queue;
+
+    // microseconds
+    int _check_time;
+
+    // microseconds
+    int _check_interval;
+
+    int _drop_diff;
+
     int _num_task;
 
+    int _num_queue;
+
     Vector<String> _task_name;
+
+    Vector<String> _queue_name;
 
     Vector<long> _task_cycle;
 
@@ -128,6 +144,8 @@ public:
     Vector<long> _task_load;
 
     Vector<Task*> _task_obj;
+
+    Vector<SimpleQueue*> _queue_obj;
 
     Vector<int> _task_cpu;
 
@@ -139,13 +157,25 @@ public:
 
     bool _task_init;
 
+    bool _queue_init;
+
     int setup2(Vector<String> &conf, ErrorHandler *errh);
 
     void setup_chain();
 
+    void setup_queue();
+
     void update_chain(bool move);
 
+    void update_local_chain(bool move);
+
+    void check_congestion();
+
     void init_task();
+
+    void init_queue();
+
+    bool is_congestion(SimpleQueue* q);
 
     static String read_handler(Element*, void*) CLICK_COLD;
 };

@@ -64,6 +64,7 @@ When written, drops all packets in the queue.
 
 class SimpleQueue : public Element, public Storage { public:
 
+public:
     SimpleQueue() CLICK_COLD;
 
     int drops() const				{ return _drops; }

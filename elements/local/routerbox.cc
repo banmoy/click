@@ -7,6 +7,7 @@
 #include "elements/analysis/timestampaccum.hh"
 #include <iostream>
 #include <queue>
+#include <unistd.h>
 CLICK_DECLS
 
 RouterBox::RouterBox()
@@ -26,6 +27,10 @@ int
 RouterBox::setup2(Vector<String> &conf, ErrorHandler *errh)
 {
     String chain = "";
+    String queue = "";
+    int time = 100000;
+    int interval = 10000;
+    int diff = 0;
     if (Args(conf, this, errh)
         .read_mp("NAME", _router_name)
         .read_p("CPU_FREQ", _cpu_freq)
@@ -33,12 +38,23 @@ RouterBox::setup2(Vector<String> &conf, ErrorHandler *errh)
         .read_p("START_CPU", _start_cpu)
         .read_p("END_CPU", _end_cpu)
         .read_p("CHAIN", chain)
+        .read_p("QUEUE", queue)
+        .read_p("TIME", time)
+        .read_p("INTERVAL", interval)
+        .read_p("DROP_DIFF", diff)
         .complete() < 0)
         return -1;
     router()->set_router_info(this);
     _task_chain = chain;
+    _task_queue = queue;
+    _check_time = time;
+    _check_interval = interval;
+    _drop_diff = diff;
     if(_task_chain.length())
         setup_chain();
+    if (_task_queue.length()) {
+        setup_queue();
+    }
     return 0;
 }
 
@@ -84,6 +100,31 @@ RouterBox::setup_chain() {
 }
 
 void
+RouterBox::setup_queue() {
+    int i = 0;
+     _num_queue = 0;
+    while(i<_task_queue.length()) {
+        int j=i;
+        while(_task_queue[j] != ',')
+            ++j;
+        String queue = _task_queue.substring(i, j-i).unshared();
+        _queue_name.push_back(queue);
+        i = ++j;
+        ++_num_queue;
+    }
+
+    _queue_init = false;
+
+    _queue_obj.resize(_num_queue);
+
+    std::cout << "task queue:";
+    for (int i = 0; i < _queue_name.size(); i++) {
+        std::cout << " " << _queue_name[i].c_str();
+    }
+    std::cout << std::endl;
+}
+
+void
 RouterBox::init_task() {
     if (!_task_init) {
         Router *r = Element::router();
@@ -105,6 +146,59 @@ RouterBox::init_task() {
         }
         std::cout << std::endl;
         _task_init = true;
+    }
+}
+
+void
+RouterBox::init_queue() {
+    if (!_queue_init) {
+        Router *r = Element::router();
+        for (int i = 0; i < _queue_name.size(); i++) {
+            SimpleQueue* q = static_cast<SimpleQueue *>(r->find(_queue_name[i]));
+            _queue_obj[i] = q;
+        }
+        _queue_init = true;
+    }
+}
+
+bool
+RouterBox::is_congestion(SimpleQueue* q) {
+    int total = 0;
+    int drops = q->drops();
+    while(total < _check_time) {
+        usleep(_check_interval);
+        int d = q->drops();
+        if (d - drops > _drop_diff) {
+            return true;
+        }
+        drops = d;
+        total += _check_interval;
+    }
+    return false;
+}
+
+void
+RouterBox::check_congestion() {
+    init_queue();
+
+    Vector<String> queues;
+    Vector<int> index;
+    for (int i = 0; i < _queue_name.size(); i++) {
+        SimpleQueue* q = _queue_obj[i];
+        if (is_congestion(q)) {
+            queues.push_back(_queue_name[i]);
+            index.push_back(i);
+        }
+    }
+
+    if (queues.size() == 0) {
+        std::cout << "there is no congestion." << std::endl;
+    } else {
+        std::cout << "congestion happened:";
+        for (int i = 0; i < queues.size(); i++) {
+            std::cout << " " << _queue_name[index[i]].c_str();
+        }
+        std::cout << std::endl;
     }
 }
 
@@ -211,6 +305,11 @@ RouterBox::update_chain(bool move) {
         std::cout << "move task successfully" << std::endl;
     }
 }
+
+void
+RouterBox::update_local_chain(bool move) {
+}
+
 
 void
 RouterBox::reset_element(String name) {

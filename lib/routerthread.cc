@@ -612,6 +612,12 @@ RouterThread::cmd_driver() {
             ret = global(msg.arg);
         } else if (msg.cmd == "global_reset") {
             ret = global_reset(msg.arg);
+        } else if (msg.cmd == "local") {
+            ret = local(msg.arg);
+        } else if (msg.cmd == "local_reset") {
+            ret = local_reset(msg.arg);
+        } else if (msg.cmd == "check_congestion") {
+            ret = check_congestion(msg.arg);
         }
         master()->set_msg_status(msg.id, (ret==-1 ? -1 : 1));
     }
@@ -1150,6 +1156,22 @@ RouterThread::randombalance(String sth) {
 }
 
 int
+RouterThread::check_congestion(String sth) {
+    std::cout << "======================== check congestion ========================" << std::endl;
+
+    String sysRouter("sys");
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        if(it.key().equals(sysRouter)) continue;
+        std::cout << "Router: " << it.key().c_str() << std::endl;
+        Router* r = it.value();
+        RouterInfo *ri = r->router_info();
+        ri->check_congestion();
+    }
+
+   return 0;
+}
+
+int
 RouterThread::global(String sth) {
     std::cout << "======================== global balance ========================" << std::endl;
 
@@ -1170,6 +1192,46 @@ RouterThread::global(String sth) {
 int
 RouterThread::global_reset(String sth) {
     std::cout << "======================== global balance ========================" << std::endl;
+
+    bool move = false;
+    BoolArg().parse(sth, move);
+    int start = 0;
+    get_reset_name(sth, start);
+    String name = get_reset_name(sth, start);
+    String sysRouter("sys");
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        if(it.key().equals(sysRouter)) continue;
+        std::cout << "Router: " << it.key().c_str() << std::endl;
+        Router* r = it.value();
+        RouterInfo *ri = r->router_info();
+        ri->update_chain(move);
+        ri->reset_element(name);
+    }
+
+   return 0;
+}
+
+int
+RouterThread::local(String sth) {
+    std::cout << "======================== local balance ========================" << std::endl;
+
+    bool move = false;
+    BoolArg().parse(sth, move);
+    String sysRouter("sys");
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        if(it.key().equals(sysRouter)) continue;
+        std::cout << "Router: " << it.key().c_str() << std::endl;
+        Router* r = it.value();
+        RouterInfo *ri = r->router_info();
+        ri->update_chain(move);
+    }
+
+   return 0;
+}
+
+int
+RouterThread::local_reset(String sth) {
+    std::cout << "======================== local balance ========================" << std::endl;
 
     bool move = false;
     BoolArg().parse(sth, move);

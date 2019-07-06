@@ -274,6 +274,12 @@ private:
 
     void reset_element(String name);
 
+    int local(String sth);
+
+    int local_reset(String sth);
+
+    int check_congestion(String sth);
+
 public:
     void cmd_driver();
     atomic_uint32_t _task_num;
