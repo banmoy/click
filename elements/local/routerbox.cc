@@ -227,10 +227,6 @@ void
 RouterBox::update_chain(bool move) {
     init_task();
 
-    if (move && try_local_chain(move)) {
-        return;
-    }
-
     int num_cpu = _end_cpu - _start_cpu + 1;
     double totalLoad = 0;
     for (int i = 0; i < _task_obj.size(); i++) {
@@ -280,6 +276,12 @@ RouterBox::update_chain(bool move) {
         double load = _task_load[i];
         _cpu_load[_task_cpu[i]] += load;
         _move_cpu_load[_task_move[i]] += load;
+    }
+
+    if (try_local_chain(move)) {
+        if (move) {
+		return;
+	}
     }
 
     std::cout << "======================== current load ========================" << std::endl;
@@ -348,7 +350,7 @@ RouterBox::try_local_chain(bool move) {
 
     if (queues.size() == 0) {
         std::cout << "there is no congestion." << std::endl;
-        return false;
+        return true;
     } else {
         std::cout << "congestion happened:";
         for (int i = 0; i < queues.size(); i++) {
@@ -408,7 +410,7 @@ RouterBox::try_local_chain(bool move) {
     bool _2 = execute(start_pos, thread, thread - 1, end_pos - 1, thread, thread + 1);
     bool _3 = execute(end_pos - 2, thread, thread + 1, end_pos - 1, thread, thread + 1);
 
-    if (!_4 && !_5 && !_1 && !_2 && !_3) {
+    if (_4 && _5 && _1 && _2 && _3) {
         std::cout << "there is no candidate update." << std::endl;
         return false;
     }
@@ -507,7 +509,7 @@ RouterBox::update_local_chain(bool move) {
     bool _2 = execute(start_pos, thread, thread - 1, end_pos - 1, thread, thread + 1);
     bool _3 = execute(end_pos - 2, thread, thread + 1, end_pos - 1, thread, thread + 1);
 
-    if (!_4 && !_5 && !_1 && !_2 && !_3) {
+    if (_4 && _5 && _1 && _2 && _3) {
         std::cout << "there is no candidate update." << std::endl;
         return;
     }
