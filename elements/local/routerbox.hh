@@ -31,6 +31,8 @@ public:
 
     int setup1(Vector<String> &conf, ErrorHandler *errh);
 
+    void reset_element(String name);
+
 private:
     String _router_name;
     String _topo;

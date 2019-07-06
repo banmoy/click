@@ -252,6 +252,8 @@ private:
 
     int move_nf(String info);
 
+    int move_reset_nf(String info);
+
     int help_move_nf(String& info, int start);
 
     int balance(String nullstr);
@@ -267,6 +269,8 @@ private:
     int add_thread(String nstr);
 
     int global(String sth);
+
+    void reset_element(String name);
 
 public:
     void cmd_driver();

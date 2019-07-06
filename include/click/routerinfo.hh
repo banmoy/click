@@ -23,6 +23,8 @@ public:
     virtual Vector<int>& task_cycle() = 0;
 
     virtual void update_chain(bool move) = 0;
+
+    virtual void reset_element(String name) = 0;
 };
 
 #endif

@@ -596,6 +596,8 @@ RouterThread::cmd_driver() {
             ret = delete_nf(msg.arg);
         } else if(msg.cmd == "movenf") {
             ret = move_nf(msg.arg);
+        } else if(msg.cmd == "move_reset_nf") {
+            ret = move_reset_nf(msg.arg);
         } else if(msg.cmd == "balance") {
             ret = balance(msg.arg);
         } else if(msg.cmd == "newbalance") {
@@ -893,6 +895,45 @@ RouterThread::delete_nf(String router_name) {
     m->_router_map.remove(router_name);
     m->unlock_rw();
     printf("delete router %s\n", router_name.mutable_data());
+
+    return 0;
+}
+
+void
+RouterThread::reset_element(String name) {
+    Router* r;
+    String sysRouter("sys");
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        if(it.key().equals(sysRouter)) continue;
+        r = it.value();
+        break;
+    }
+    RouterInfo *ri = r->router_info();
+    ri->reset_element(name);
+}
+
+String
+get_reset_name(String& info, int& start) {
+    String who;
+    int pos = start, len = info.length(), first;
+    while (pos < len && isspace((unsigned char) info[pos]))
+      pos++;
+    first = pos;
+    while (pos < len && !isspace((unsigned char) info[pos]))
+      pos++;
+    who = info.substring(first, pos - first).unshared();
+    start = pos;
+    return who;
+}
+
+int
+RouterThread::move_reset_nf(String info) {
+    int pos = 0, len = info.length();
+    String reset_name = get_reset_name(info, pos);
+    while (pos < len) {
+        pos = help_move_nf(info, pos);
+    }
+    reset_element(reset_name);
 
     return 0;
 }
