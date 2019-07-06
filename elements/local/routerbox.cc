@@ -4,6 +4,7 @@
 #include <click/router.hh>
 #include "elements/standard/fullnotequeue.hh"
 #include "elements/standard/unqueue.hh"
+#include "elements/analysis/timestampaccum.hh"
 #include <iostream>
 #include <queue>
 CLICK_DECLS
@@ -209,6 +210,14 @@ RouterBox::update_chain(bool move) {
         }
         std::cout << "move task successfully" << std::endl;
     }
+}
+
+void
+RouterBox::reset_element(String name) {
+    Router *r = Element::router();
+    TimestampAccum* e = static_cast<TimestampAccum *>(r->find(name));
+    e->reset();
+    std::cout << "reset element " << name.c_str() << std::endl;
 }
 
 int

@@ -45,6 +45,12 @@ TimestampAccum::simple_action(Packet *p)
     return p;
 }
 
+void
+TimestampAccum::reset() {
+    _usec_accum = 0;
+    _count = 0;
+}
+
 String
 TimestampAccum::read_handler(Element *e, void *thunk)
 {
