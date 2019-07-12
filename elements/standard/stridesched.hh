@@ -50,7 +50,7 @@ class StrideSched : public Element { public:
     enum { STRIDE1 = 1U<<16, MAX_TICKETS = 1U<<15 };
     int tickets(int) const;
     int set_tickets(int, int, ErrorHandler *);
-
+    int set_tickets(int , int);
     Packet *pull(int port);
 
   protected:

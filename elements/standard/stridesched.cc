@@ -22,6 +22,7 @@
 #include <click/args.hh>
 #include <click/straccum.hh>
 #include <click/error.hh>
+#include <iostream>
 CLICK_DECLS
 
 StrideSched::StrideSched()
@@ -139,6 +140,29 @@ StrideSched::set_tickets(int port, int tickets, ErrorHandler *errh)
     }
     return 0;
 }
+
+
+
+int
+StrideSched::set_tickets(int port, int tickets)
+{
+    int old_tickets = _all[port]._tickets;
+    _all[port].set_tickets(tickets);
+    std::cout <<"the old tickets is"<<old_tickets<<std::endl;
+    std::cout <<"the current tickets is"<<tickets<<std::endl;
+    if (tickets == 0 && old_tickets != 0)
+	{
+        _all[port].remove();
+        std::cout << "tickets value has been set 0 and the port has been removed!"<< std::endl;
+        }
+    else if (tickets != 0 && old_tickets == 0) {
+	_all[port]._pass = (_list ? _list->_pass + _all[port]._stride : 0);
+	_all[port].insert(&_list);
+    }
+    return 0;
+}
+
+
 
 static String
 read_tickets_handler(Element *e, void *thunk)

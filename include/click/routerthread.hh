@@ -278,6 +278,8 @@ private:
 
     int local_reset(String sth);
 
+    int coco_reset(String sth);  //add coco_reset
+
     int check_congestion(String sth);
 
 public:

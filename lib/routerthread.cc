@@ -618,6 +618,8 @@ RouterThread::cmd_driver() {
             ret = local_reset(msg.arg);
         } else if (msg.cmd == "check_congestion") {
             ret = check_congestion(msg.arg);
+        } else if (msg.cmd == "coco_reset") {    //add coco_reset
+            ret = coco_reset(msg.arg);
         }
         master()->set_msg_status(msg.id, (ret==-1 ? -1 : 1));
     }
@@ -1254,6 +1256,32 @@ RouterThread::local_reset(String sth) {
 
    return 0;
 }
+
+//add function coco_reset
+int 
+RouterThread::coco_reset(String sth) {
+    std::cout << "======================== coco ========================" << std::endl;
+
+    bool move = false;
+    int start = 0;
+    String name = get_reset_name(sth, start);
+    String s = get_reset_name(sth, start);
+    if (s.equals("true")) {
+        move = true;
+    }
+    String sysRouter("sys");
+    for(HashMap<String, Router*>::iterator it = master()->_router_map.begin(); it.live(); it++) {
+        if(it.key().equals(sysRouter)) continue;
+        std::cout << "Router: " << it.key().c_str() << std::endl;
+        Router* r = it.value();
+        RouterInfo *ri = r->router_info();
+        ri->update_coco_chain(move);
+        ri->reset_element(name);
+    }
+
+   return 0;
+}
+
 
 int
 RouterThread::newbalance(String sth) {

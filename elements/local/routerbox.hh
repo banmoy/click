@@ -171,6 +171,8 @@ public:
 
     bool try_local_chain(bool move);
 
+    void update_coco_chain(bool move); //add defination of update_coco_chain
+
     void check_congestion();
 
     void init_task();
@@ -180,6 +182,8 @@ public:
     bool is_congestion(SimpleQueue* q);
 
     bool is_congestion();
+
+    void change_stride(String name,int port,int tickets);
 
     bool execute(int c1, int c11, int c12);
 

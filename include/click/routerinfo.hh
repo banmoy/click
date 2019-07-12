@@ -14,7 +14,7 @@ public:
 
     virtual void update_info() = 0;
 	
-	virtual double src_rate() = 0;
+    virtual double src_rate() = 0;
 
     virtual Vector<Task*>& task() = 0;
 
@@ -27,6 +27,8 @@ public:
     virtual void update_chain(bool move) = 0;
 
     virtual void update_local_chain(bool move) = 0;
+
+    virtual void update_coco_chain(bool move)=0; //add defination of update_coco_chain
 
     virtual void reset_element(String name) = 0;
 };

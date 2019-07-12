@@ -5,6 +5,7 @@
 #include "elements/standard/fullnotequeue.hh"
 #include "elements/standard/unqueue.hh"
 #include "elements/analysis/timestampaccum.hh"
+#include "elements/standard/strideswitch.hh"
 #include <iostream>
 #include <queue>
 #include <unistd.h>
@@ -528,6 +529,174 @@ RouterBox::update_local_chain(bool move) {
         }
     }
 }
+
+// update_coco_chain
+void
+RouterBox::update_coco_chain(bool move) {
+	init_task();
+    init_queue();
+
+    Vector<String> queues;
+    Vector<int> index;
+    for (int i = 0; i < _queue_name.size(); i++) {
+        SimpleQueue* q = _queue_obj[i];
+        if (is_congestion(q)) {
+            queues.push_back(_queue_name[i]);
+            index.push_back(i);
+        }
+    }
+
+    if (queues.size() == 0) {
+        std::cout << "there is no congestion." << std::endl;
+		return;
+    } else {
+        std::cout << "congestion happened:";
+        for (int i = 0; i < queues.size(); i++) {
+            std::cout << " " << _queue_name[index[i]].c_str();
+        }
+        std::cout << std::endl;
+    }
+
+    //more than one congestion happened
+    if (queues.size() > 1) {
+        std::cout << "more than one congestion happened. Now start the coco duplicate process!" << std::endl;
+        //return;
+    }
+
+    int pos = index[0];
+    int thread = _task_cpu[pos]; // find the thread related to the pos
+    if (thread == _start_cpu || thread == _end_cpu) {
+        std::cout << "can't update chain because there is no cpu: "
+                  << "start cpu is " << _start_cpu
+                  << ", end cpu is " << _end_cpu
+                  << ", congestion cpu is " << thread
+                  << std::endl;
+        //return;
+    }
+
+    int start_pos = pos;
+    int end_pos = pos + 1;
+    while (end_pos < _task_obj.size()) {
+        Task* t = _task_obj[end_pos];
+        if (t->home_thread_id() != thread) {
+            break; // when the thread of end_pos is different from the congested thread, break
+        }
+        end_pos++;
+    }
+    //note the correctness of num when run coco the second time???
+
+    std::cout << "congestion happened on cpu " << thread << ":";
+    for (int i = start_pos; i < end_pos; i++) {
+        std::cout << " " << _task_name[i].c_str();
+    }
+    std::cout << std::endl;
+
+    int num = end_pos - start_pos; //num is the number of tasks in the congested cpu
+    if (num < 3) {
+         std::cout << "can't update chain because congested tasks is less than 3" << std::endl;
+         //return;
+    }
+
+    //check the thread 
+    if (thread == 5) {//if the thread is 5, start_pos is u311, but move u312
+	start_pos = start_pos + 1;
+        change_stride("rr3",1,1); 	
+    }  else if (thread == 4) { //if the thread is 4, start_pos is u21, but move u212
+       	start_pos = start_pos +1;
+        change_stride("rr2",1,1);
+     }
+
+    // coco
+    int result[4] = {0};// record the successful result 
+    int counter = 0;
+    for (int i = _start_cpu; i <= _end_cpu; i++) { //from cpu 2 to cpu 6
+    	if (i == thread) {
+    		continue;
+    	}
+        std::cout << "now begin to trying moves for duplicate!" << std::endl;
+    	bool check_case = execute(start_pos, thread, i); //check if this try_move can eliminate congestion
+    	if (!check_case) {
+    		result[counter] = i; //record the successful result(cpu core)
+    		counter ++; //at most 4 results
+    	}
+    }
+    if (result[0] == 0) {
+    	std::cout << "there is no candidate update for coco duplicate." << std::endl;
+    	if (thread == 4) { //if the thread is 4, start_pos is u21, but move u212
+        change_stride("rr2",1,0);
+        }
+        else if(thread==5){
+        change_stride("rr3",1,0);
+        }
+        return;
+    } else {
+    	  std::cout << "now the final pos for duplicate is:" <<result[0]<< std::endl;
+	  if (move) {
+             move_task(start_pos, result[0]); // choose the first result to move
+          }
+    }
+
+
+    //another way
+    // for (int i = _start_cpu; i <= _end_cpu; i++) {
+    // 	if (i == thread) {
+    // 		continue;
+    // 	}
+    // 	bool check_case = execute(start_pos, thread, i);
+    // 	if (!check_case) {
+    // 		move_task(start_pos, i);
+    // 		break;
+    // 	}
+    // 	if (i == _end_cpu) { 
+    // 		std::cout << "there is no candidate update." << std::endl;
+    // 		return;
+    // 	}
+    // }
+
+
+    // a b c
+    // 4. a -> thread-1
+    // 5. c -> thread+1
+    // 1. (a b) -> thread-1 
+    // 2. a -> thread-1 c -> thread+1
+    // 3. (b c) -> thread+1
+    // std::cout << "iterate possible solutions" << std::endl;
+    // bool _4 = execute(start_pos, thread, thread - 1); //if execute eliminated congestion, return faulse
+    // bool _5 = execute(end_pos - 1, thread, thread + 1);
+    // bool _1 = execute(start_pos, thread, thread - 1, start_pos + 1, thread, thread - 1);
+    // bool _2 = execute(start_pos, thread, thread - 1, end_pos - 1, thread, thread + 1);
+    // bool _3 = execute(end_pos - 2, thread, thread + 1, end_pos - 1, thread, thread + 1);
+
+    // if (_4 && _5 && _1 && _2 && _3) {
+    //     std::cout << "there is no candidate update." << std::endl;
+    //     return;
+    // }
+ 
+    // if (move) {
+    //     if (!_4) {
+    //         move_task(start_pos, thread - 1);
+    //     } else if (!_5) {
+    //         move_task(end_pos - 1, thread + 1);
+    //     } else if (!_1) {
+    //        move_task(start_pos, thread - 1, start_pos + 1, thread - 1); 
+    //     } else if (!_2) {
+    //        move_task(start_pos, thread - 1, end_pos - 1, thread + 1); 
+    //     } else if (!_3) {
+    //        move_task(end_pos - 2, thread + 1, end_pos - 1, thread + 1); 
+    //     }
+    // }
+}
+
+
+void
+RouterBox::change_stride(String name,int port, int tickets) {
+    Router *r = Element::router();
+    StrideSwitch* e = static_cast<StrideSwitch *>(r->find(name));
+    e->set_tickets(port,tickets);
+    std::cout << "change strideSwitch! " << name.c_str() << std::endl;
+}
+
+
 
 bool
 RouterBox::execute(int c1, int c11, int c12) {
