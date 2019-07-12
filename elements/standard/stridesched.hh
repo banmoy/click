@@ -97,6 +97,8 @@ class StrideSched : public Element { public:
     }
     static String read_handler(Element *, void *) CLICK_COLD;
 
+    bool _port_1_enabled;
+    unsigned _packet_count; 
 };
 
 CLICK_ENDDECLS

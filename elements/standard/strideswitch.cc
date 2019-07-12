@@ -29,15 +29,12 @@ StrideSwitch::StrideSwitch()
 void
 StrideSwitch::push(int, Packet *p)
 {
-    if (_list) {
-	Client *stridden = _list;
-	if ((_list = stridden->_next))
-	    _list->_pprev = &_list;
-	stridden->stride();
-	stridden->insert(&_list);
-	output(stridden - _all).push(p);
-    } else
-	p->kill();
+	_packet_count++;
+	if (_port_1_enabled && _packet_count % 2 == 0) {
+		output(1).push(p);
+	} else {
+		output(0).push(p);
+	}
 }
 
 CLICK_ENDDECLS

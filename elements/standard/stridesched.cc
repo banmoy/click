@@ -41,6 +41,7 @@ StrideSched::configure(Vector<String> &conf, ErrorHandler *errh)
     if (first && !(_all = new Client[nclients()]))
 	return errh->error("out of memory");
 
+    _port_1_enabled = false;
     for (int i = 0; i < conf.size(); i++) {
 	int v;
 	if (!IntArg().parse(conf[i], v))
@@ -56,7 +57,11 @@ StrideSched::configure(Vector<String> &conf, ErrorHandler *errh)
 	    if (first)
 		_all[i].stride();
 	}
+        if (i == 1 && _port_1_enabled > 0) {
+            _port_1_enabled = true;
+        }
     }
+    _packet_count = 0;
 
     // insert into reverse order so they're run in forward order on ties
     _list = 0;
@@ -120,25 +125,8 @@ StrideSched::tickets(int port) const
 int
 StrideSched::set_tickets(int port, int tickets, ErrorHandler *errh)
 {
-    if ((unsigned) port >= (unsigned) nclients())
-	return errh->error("port %d out of range", port);
-    else if (tickets < 0)
-	return errh->error("number of tickets must be >= 0");
-    else if (tickets > MAX_TICKETS) {
-	errh->warning("port %d%,s tickets reduced to %d", port, MAX_TICKETS);
-	tickets = MAX_TICKETS;
-    }
-
-    int old_tickets = _all[port]._tickets;
-    _all[port].set_tickets(tickets);
-
-    if (tickets == 0 && old_tickets != 0)
-	_all[port].remove();
-    else if (tickets != 0 && old_tickets == 0) {
-	_all[port]._pass = (_list ? _list->_pass + _all[port]._stride : 0);
-	_all[port].insert(&_list);
-    }
-    return 0;
+    	_port_1_enabled = tickets > 0;
+	return 0;
 }
 
 
@@ -146,20 +134,8 @@ StrideSched::set_tickets(int port, int tickets, ErrorHandler *errh)
 int
 StrideSched::set_tickets(int port, int tickets)
 {
-    int old_tickets = _all[port]._tickets;
-    _all[port].set_tickets(tickets);
-    std::cout <<"the old tickets is"<<old_tickets<<std::endl;
-    std::cout <<"the current tickets is"<<tickets<<std::endl;
-    if (tickets == 0 && old_tickets != 0)
-	{
-        _all[port].remove();
-        std::cout << "tickets value has been set 0 and the port has been removed!"<< std::endl;
-        }
-    else if (tickets != 0 && old_tickets == 0) {
-	_all[port]._pass = (_list ? _list->_pass + _all[port]._stride : 0);
-	_all[port].insert(&_list);
-    }
-    return 0;
+	_port_1_enabled = tickets > 0;
+	return 0;
 }
 
 
