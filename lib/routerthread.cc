@@ -1264,8 +1264,11 @@ RouterThread::coco_reset(String sth) {
 
     bool move = false;
     int start = 0;
+    bool index=false;
     String name = get_reset_name(sth, start);
     String s = get_reset_name(sth, start);
+    std::cout << "Now the name is: " << name.c_str() << std::endl;
+    std::cout << "Now the s is: " << s.c_str() << std::endl;
     if (s.equals("true")) {
         move = true;
     }
@@ -1275,8 +1278,8 @@ RouterThread::coco_reset(String sth) {
         std::cout << "Router: " << it.key().c_str() << std::endl;
         Router* r = it.value();
         RouterInfo *ri = r->router_info();
-        ri->update_coco_chain(move);
-        ri->reset_element(name);
+        index=ri->update_coco_chain(move);
+        if(index) ri->reset_element(name);
     }
 
    return 0;

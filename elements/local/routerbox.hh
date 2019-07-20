@@ -171,7 +171,7 @@ public:
 
     bool try_local_chain(bool move);
 
-    void update_coco_chain(bool move); //add defination of update_coco_chain
+    bool update_coco_chain(bool move); //add defination of update_coco_chain
 
     void check_congestion();
 

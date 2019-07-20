@@ -531,7 +531,7 @@ RouterBox::update_local_chain(bool move) {
 }
 
 // update_coco_chain
-void
+bool
 RouterBox::update_coco_chain(bool move) {
 	init_task();
     init_queue();
@@ -548,7 +548,7 @@ RouterBox::update_coco_chain(bool move) {
 
     if (queues.size() == 0) {
         std::cout << "there is no congestion." << std::endl;
-		return;
+		return false;
     } else {
         std::cout << "congestion happened:";
         for (int i = 0; i < queues.size(); i++) {
@@ -625,15 +625,16 @@ RouterBox::update_coco_chain(bool move) {
     	if (thread == 4) { //if the thread is 4, start_pos is u21, but move u212
         change_stride("rr2",1,0);
         }
-        else if(thread==5){
-        change_stride("rr3",1,0);
-        }
-        return;
+        //else if(thread==5){
+        //change_stride("rr3",1,0);
+        //}
+        return false;
     } else {
     	  std::cout << "now the final pos for duplicate is:" <<result[0]<< std::endl;
 	  if (move) {
              move_task(start_pos, result[0]); // choose the first result to move
           }
+          return true;
     }
 
 
