@@ -166,14 +166,25 @@ bool
 RouterBox::is_congestion(SimpleQueue* q) {
     int total = 0;
     int drops = q->drops();
+    int length = 0;
+    int counter = 0;
+    int d=0;
     while(total < _check_time) {
         usleep(_check_interval);
-        int d = q->drops();
-        if (d - drops > _drop_diff) {
-            return true;
-        }
-        drops = d;
+        d = q->drops();
+       // if (d - drops > _drop_diff) {
+         //   counter ++;
+            //return true;
+       // }
+        //drops = d;
+        length += q->size();
+        //std::cout << "now the length is:"<<length<<std::endl;
         total += _check_interval;
+    }
+    length = length/10;
+    //std::cout << "now the counter is:"<<counter<<std::endl;
+    if (length >= 3000 * 0.85&& d-drops > _drop_diff) {
+    	return true;
     }
     return false;
 }
